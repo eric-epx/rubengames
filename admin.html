@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · Ruben Games</title>
+<meta name="description" content="Ruben Games admin">
+<meta name="robots" content="noindex">
+<meta property="og:title" content="Admin · Ruben Games"><meta property="og:description" content="Ruben Games admin"><meta property="og:site_name" content="Ruben Games">
+<meta name="theme-color" content="#0d1016">
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="rg-api.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1016; --surface: #151a22; --surface-2: #1b212b; --surface-3: #222a36; --text: #e9edf3; --muted: #97a1b0; --faint: #687283;
+    --border: #232a35; --grid: #232a35; --brand: #f0a64a; --brand-hi: #ffc47a; --danger: #ff7b6b; --ok: #7fd99a;
+    --shadow: 0 1px 2px rgba(0,0,0,.45), 0 10px 28px rgba(0,0,0,.30);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 400 14.5px/1.5 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  body { min-height: 100vh; background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(240,166,74,0.07), transparent 60%), var(--bg); }
+  a { color: var(--brand); }
+  button, input, select { font: inherit; color: inherit; }
+  header { max-width: 1120px; margin: 0 auto; padding: 34px 20px 8px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .logo { width: 44px; height: 44px; border-radius: 12px; flex: none; display: grid; place-items: center;
+    background: linear-gradient(145deg, #f6b765, #c9662a); color: #1a0e05; font: 700 19px 'Outfit', sans-serif; }
+  h1 { font: 700 28px 'Outfit', sans-serif; margin: 0; letter-spacing: -0.4px; }
+  h1 small { font: 500 15px 'Inter', sans-serif; color: var(--muted); margin-left: 8px; letter-spacing: 0; }
+  .hdr-links { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .btn { border: 1px solid var(--border); background: var(--surface-2); border-radius: 10px; padding: 7px 13px; cursor: pointer; text-decoration: none; color: var(--text); font-weight: 500; white-space: nowrap; }
+  .btn:hover { border-color: #3a4352; background: var(--surface-3); }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #1a0e05; font-weight: 600; }
+  .btn.primary:hover { background: var(--brand-hi); }
+  .btn.danger { color: var(--danger); }
+  .btn.danger.solid { background: #b8402f; border-color: #b8402f; color: #fff; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.sm { padding: 4px 10px; font-size: 13px; border-radius: 8px; }
+  main { max-width: 1120px; margin: 0 auto; padding: 14px 20px 70px; display: grid; gap: 18px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px 20px 20px; box-shadow: var(--shadow); min-width: 0; }
+  .card h2 { font: 600 18px 'Outfit', sans-serif; margin: 0; letter-spacing: -0.1px; }
+  .card .sub { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+  .row2 { display: grid; gap: 18px; grid-template-columns: 1.25fr 1fr; }
+  @media (max-width: 900px) { .row2 { grid-template-columns: 1fr; } }
+
+  /* KPI tiles */
+  .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+  .kpi .k { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+  .kpi .v { font: 600 28px 'Outfit', sans-serif; letter-spacing: -0.5px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .kpi .v.small { font-size: 19px; line-height: 1.35; padding-top: 6px; }
+  .kpi .d { color: var(--faint); font-size: 12px; }
+
+  /* controls: one row above the chart */
+  .ctl { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 14px 0 6px; }
+  .seg { display: inline-flex; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 2px; }
+  .seg button { border: 0; background: transparent; padding: 5px 12px; border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 500; }
+  .seg button[aria-pressed=true] { background: var(--surface-3); color: var(--text); box-shadow: 0 0 0 1px #3a4352 inset; }
+  select, input[type=text], input[type=password], input[type=search] { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 6px 10px; min-height: 34px; }
+  select:focus, input:focus, .btn:focus-visible, .seg button:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+  .spacer { flex: 1; }
+  .nav { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); font-size: 13px; }
+  .nav button { width: 30px; height: 30px; padding: 0; display: grid; place-items: center; }
+
+  /* charts */
+  .chart { position: relative; width: 100%; }
+  .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .chart .tick { fill: var(--faint); font-size: 11.5px; font-family: 'Inter', sans-serif; }
+  .chart .xl { fill: var(--muted); font-size: 12px; font-family: 'Inter', sans-serif; }
+  .chart .xl2 { fill: var(--faint); font-size: 11px; font-family: 'Inter', sans-serif; }
+  .chart .vl { fill: var(--text); font-size: 12.5px; font-weight: 600; font-family: 'Inter', sans-serif; }
+  .chart .gl { stroke: var(--grid); stroke-width: 1; }
+  .chart .base { stroke: #3a4352; stroke-width: 1; }
+  .chart .bar { fill: var(--brand); transition: fill .12s; }
+  .chart .bar.now { fill: var(--brand); }
+  .chart .hit { fill: transparent; cursor: default; }
+  .chart .hit:hover + .bar, .chart g.on .bar { fill: var(--brand-hi); }
+  .chart .zero { fill: #3a4352; }
+  .tip { position: absolute; pointer-events: none; background: #0b0e13; border: 1px solid #3a4352; border-radius: 9px; padding: 7px 10px; font-size: 12.5px;
+    white-space: nowrap; box-shadow: 0 6px 20px rgba(0,0,0,.4); transform: translate(-50%, calc(-100% - 10px)); opacity: 0; transition: opacity .1s; z-index: 3; }
+  .tip b { font-weight: 600; } .tip .m { color: var(--muted); }
+  .tip.show { opacity: 1; }
+  .empty { color: var(--muted); padding: 40px 0; text-align: center; }
+  .facts { display: flex; gap: 6px 18px; flex-wrap: wrap; color: var(--muted); font-size: 13px; margin: 2px 0 10px; }
+  .facts b { color: var(--text); font-weight: 600; }
+
+  /* tables */
+  .tbl-wrap { overflow-x: auto; margin-top: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 12.5px; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th.num, td.num { text-align: right; }
+  td { padding: 8px 10px; border-bottom: 1px solid #1c222c; vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  td .u { color: var(--faint); font-size: 12.5px; }
+  td.act { text-align: right; white-space: nowrap; }
+  td.act .btn + .btn { margin-left: 6px; }
+  th.sortable { cursor: pointer; user-select: none; } th.sortable:hover { color: var(--text); }
+  th .arr { font-size: 10px; margin-left: 3px; }
+  .tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); margin-left: 6px; }
+  .data-tbl { margin-top: 10px; }
+  .data-tbl[hidden] { display: none; }
+
+  /* sign-in + dialogs */
+  .login { max-width: 380px; margin: 9vh auto 0; }
+  .login form { display: grid; gap: 12px; margin-top: 14px; }
+  .login input { width: 100%; padding: 10px 12px; font-size: 15px; }
+  .err { color: var(--danger); font-size: 13.5px; min-height: 1.2em; }
+  .okmsg { color: var(--ok); font-size: 13.5px; min-height: 1.2em; }
+  .modal { position: fixed; inset: 0; background: rgba(5,7,10,.72); display: grid; place-items: center; padding: 16px; z-index: 20; }
+  .modal[hidden] { display: none; }
+  .modal .card { width: min(440px, 100%); }
+  .modal .card p { color: var(--muted); margin: 8px 0 12px; }
+  .modal label.opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
+  .modal label.opt:has(input:checked) { border-color: var(--brand); background: var(--surface-2); }
+  .modal label.opt select { margin-top: 6px; width: 100%; }
+  .modal .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  .modal input[type=text] { width: 100%; }
+  .grid-set { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  input[type=file] { color: var(--muted); max-width: 100%; }
+  @media (max-width: 760px) { .grid-set { grid-template-columns: 1fr; } }
+  .form-row { display: grid; gap: 8px; margin-top: 12px; }
+  .form-row input { width: 100%; }
+  .danger-card { border-color: #4a2a27; }
+  #dash { display: contents; } #dash[hidden] { display: none; }
+  .loading { color: var(--muted); text-align: center; padding: 60px 0; }
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .toolbar input[type=search] { min-width: 200px; }
+  @media (max-width: 560px) { header { padding-top: 22px; } h1 small { display: block; margin: 0; } .card { padding: 16px 14px; } td, th { padding: 7px 6px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">RG</div>
+  <h1>Ruben Games <small>Admin</small></h1>
+  <div class="hdr-links">
+    <a class="btn" href="./" target="_top">← Arcade</a>
+    <button class="btn" id="refreshBtn" type="button" hidden>Refresh</button>
+    <button class="btn" id="outBtn" type="button" hidden>Sign out</button>
+  </div>
+</header>
+
+<main id="app">
+  <section class="card login" id="login" hidden>
+    <h2>Admin sign-in</h2>
+    <p class="sub">This page is only for the arcade's grown-ups.</p>
+    <form id="loginForm" autocomplete="off">
+      <input type="password" id="pw" placeholder="Admin password" autocomplete="current-password">
+      <div class="err" id="loginErr" role="alert"></div>
+      <button class="btn primary" type="submit" id="loginBtn">Sign in</button>
+    </form>
+  </section>
+  <section class="card login" id="setup" hidden>
+    <h2>First-time setup</h2>
+    <p class="sub">Bring in your players, scores and play history from the old Apps Script arcade.</p>
+    <form id="setupForm" autocomplete="off">
+      <label class="sub" for="setupFile">1. The export file from Google Drive (ruben-games-export-….json)</label>
+      <input type="file" id="setupFile" accept=".json,application/json">
+      <label class="sub" for="setupPw">2. Your admin password (the same one as before)</label>
+      <input type="password" id="setupPw" placeholder="Admin password" autocomplete="current-password">
+      <div class="err" id="setupErr" role="alert"></div>
+      <button class="btn primary" type="submit" id="setupBtn">Import and finish setup</button>
+    </form>
+  </section>
+  <div class="loading" id="loading" hidden>Loading the numbers…</div>
+
+  <div id="dash" hidden>
+    <section class="kpis" id="kpis"></section>
+
+    <div class="row2">
+      <section class="card">
+        <h2 id="c1Title">Games played</h2>
+        <p class="sub" id="c1Sub"></p>
+        <div class="ctl">
+          <div class="seg" id="unitSeg" role="group" aria-label="Time unit">
+            <button type="button" data-u="day">Days</button><button type="button" data-u="week">Weeks</button><button type="button" data-u="month">Months</button><button type="button" data-u="year">Years</button>
+          </div>
+          <select id="gameSel" aria-label="Game"></select>
+          <div class="seg" id="metricSeg" role="group" aria-label="Count">
+            <button type="button" data-m="plays" title="How many games were started">Plays</button><button type="button" data-m="players" title="How many different players played">Players</button>
+          </div>
+          <span class="spacer"></span>
+          <span class="nav"><button class="btn" id="prevBtn" type="button" aria-label="Earlier">‹</button><button class="btn" id="nextBtn" type="button" aria-label="Later">›</button></span>
+        </div>
+        <div class="chart" id="chart1"></div>
+        <div style="text-align:right;margin-top:4px"><button class="btn sm" type="button" id="tbl1Btn">Show numbers</button></div>
+        <div class="data-tbl" id="tbl1" hidden></div>
+      </section>
+
+      <section class="card">
+        <h2>Plays by player</h2>
+        <p class="sub">How many times a player has played each game, all time.</p>
+        <div class="ctl">
+          <select id="playerSel" aria-label="Player" style="flex:1;min-width:0"></select>
+        </div>
+        <div class="facts" id="pFacts"></div>
+        <div class="chart" id="chart2"></div>
+      </section>
+    </div>
+
+    <section class="card">
+      <h2>Games</h2>
+      <p class="sub">All-time and recent plays for every game.</p>
+      <div class="tbl-wrap"><table id="gamesTbl"></table></div>
+    </section>
+
+    <section class="card">
+      <div class="toolbar">
+        <div><h2>Players</h2><p class="sub">Rename or delete players. Deleting can move their scores to another player instead of erasing them.</p></div>
+        <span class="spacer"></span>
+        <input type="search" id="pSearch" placeholder="Search players" aria-label="Search players">
+      </div>
+      <div class="tbl-wrap"><table id="playersTbl"></table></div>
+    </section>
+
+    <div class="grid-set">
+      <section class="card">
+        <h2>Admin password</h2>
+        <p class="sub">Stored scrambled in the arcade's database — never in the page or the code.</p>
+        <form id="pwForm" autocomplete="off">
+          <div class="form-row">
+            <input type="password" id="pwCur" placeholder="Current admin password" autocomplete="current-password">
+            <input type="password" id="pwNew" placeholder="New password (8+ characters)" autocomplete="new-password">
+            <input type="password" id="pwNew2" placeholder="New password again" autocomplete="new-password">
+          </div>
+          <div class="err" id="pwErr" role="alert"></div>
+          <button class="btn" type="submit" id="pwBtn">Change password</button>
+        </form>
+      </section>
+      <section class="card">
+        <h2>Import from Apps Script</h2>
+        <p class="sub">Bring in a newer export file (e.g. scores played on the old site since the move). Anything already here is skipped.</p>
+        <div class="form-row"><input type="file" id="impFile" accept=".json,application/json"></div>
+        <div class="err" id="impErr" role="alert"></div>
+        <button class="btn" type="button" id="impBtn">Import file</button>
+      </section>
+      <section class="card danger-card">
+        <h2>Danger zone</h2>
+        <p class="sub">Erase every player, score and play and sign everyone out. This can't be undone.</p>
+        <div class="form-row"><input type="text" id="eraseTxt" placeholder="Type ERASE to confirm" autocomplete="off"></div>
+        <div class="err" id="eraseErr" role="alert"></div>
+        <button class="btn danger solid" type="button" id="eraseBtn">Erase everything</button>
+      </section>
+    </div>
+  </div>
+</main>
+
+<div class="modal" id="modal" hidden><div class="card" role="dialog" aria-modal="true" id="modalCard"></div></div>
+<div class="tip" id="tip"></div>
+
+<script>
+(function () {
+  'use strict';
+  var HOME = './';
+  var TOKEN_KEY = 'rgAdmin';
+  var $ = function (id) { return document.getElementById(id); };
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  var store = null; try { store = window.sessionStorage; store.getItem('x'); } catch (e) { store = null; }
+  var token = null; try { token = store && store.getItem(TOKEN_KEY); } catch (e) {}
+  var DATA = null;
+  var st = { unit: 'week', game: 'all', metric: 'plays', back: 0, player: null, sort: 'plays', dir: -1, q: '', showTbl: false };
+  try { var saved = JSON.parse((window.localStorage && localStorage.getItem('rgAdminView')) || '{}'); ['unit', 'game', 'metric'].forEach(function (k) { if (saved[k]) st[k] = saved[k]; }); } catch (e) {}
+  function remember() { try { localStorage.setItem('rgAdminView', JSON.stringify({ unit: st.unit, game: st.game, metric: st.metric })); } catch (e) {} }
+
+  // ---------------------------------------------------------------- server calls
+  function server(fn, args, ok, fail) {
+    if (!(window.google && google.script && google.script.run)) { fail && fail(new Error('Couldn\'t find the arcade server.')); return; }
+    var r = google.script.run.withSuccessHandler(ok).withFailureHandler(function (e) {
+      var msg = (e && e.message ? e.message : String(e)).replace(/^(Exception|Error):\s*/, '');
+      if (/^AUTH:/.test(msg)) { signOut(); $('loginErr').textContent = msg.replace(/^AUTH:\s*/, ''); return; }
+      fail && fail(new Error(msg));
+    });
+    if (typeof r[fn] !== 'function') { fail && fail(new Error('The server has no ' + fn + ' yet.')); return; }
+    r[fn].apply(r, args);
+  }
+
+  // ---------------------------------------------------------------- sign-in
+  function showLogin() {
+    $('setup').hidden = true;
+    $('login').hidden = false; $('dash').hidden = true; $('loading').hidden = true;
+    $('outBtn').hidden = $('refreshBtn').hidden = true;
+    setTimeout(function () { $('pw').focus(); }, 30);
+  }
+  function signOut() { token = null; try { store && store.removeItem(TOKEN_KEY); } catch (e) {} DATA = null; showLogin(); }
+  $('loginForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var pw = $('pw').value; if (!pw) return;
+    $('loginBtn').disabled = true; $('loginErr').textContent = '';
+    server('apLogin', [pw], function (r) {
+      $('loginBtn').disabled = false; $('pw').value = '';
+      token = r.token; try { store && store.setItem(TOKEN_KEY, token); } catch (e) {}
+      load();
+    }, function (err) { $('loginBtn').disabled = false; $('loginErr').textContent = err.message; });
+  });
+  $('outBtn').addEventListener('click', signOut);
+  $('refreshBtn').addEventListener('click', function () { load(true); });
+
+  function load(quiet) {
+    $('login').hidden = true; $('setup').hidden = true; $('outBtn').hidden = $('refreshBtn').hidden = false;
+    if (!quiet || !DATA) { $('dash').hidden = true; $('loading').hidden = false; $('loading').textContent = 'Loading the numbers…'; }
+    $('refreshBtn').disabled = true;
+    server('apData', [token], function (d) {
+      $('refreshBtn').disabled = false;
+      DATA = prep(d); $('loading').hidden = true; $('dash').hidden = false; renderAll();
+    }, function (err) { $('refreshBtn').disabled = false; $('loading').hidden = false; $('loading').textContent = 'Couldn\'t load: ' + err.message; });
+  }
+
+  // ---------------------------------------------------------------- dates (all in Denver days, as 'YYYY-MM-DD')
+  var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  function pd(s) { var p = s.split('-'); return new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])); }
+  function fd(d) { return d.toISOString().slice(0, 10); }
+  function addDays(s, n) { var d = pd(s); d.setUTCDate(d.getUTCDate() + n); return fd(d); }
+  function daysBetween(a, b) { return Math.round((pd(b) - pd(a)) / 86400000); }
+  // The period a day falls in, as the period's first day
+  function periodStart(s, unit) {
+    var d = pd(s);
+    if (unit === 'week') d.setUTCDate(d.getUTCDate() - d.getUTCDay());            // weeks start Sunday
+    else if (unit === 'month') d.setUTCDate(1);
+    else if (unit === 'year') { d.setUTCMonth(0); d.setUTCDate(1); }
+    return fd(d);
+  }
+  function shift(start, unit, n) {
+    var d = pd(start);
+    if (unit === 'day') d.setUTCDate(d.getUTCDate() + n);
+    else if (unit === 'week') d.setUTCDate(d.getUTCDate() + 7 * n);
+    else if (unit === 'month') d.setUTCMonth(d.getUTCMonth() + n);
+    else d.setUTCFullYear(d.getUTCFullYear() + n);
+    return fd(d);
+  }
+  function label(start, unit) {
+    var d = pd(start), m = MON[d.getUTCMonth()], day = d.getUTCDate(), y = d.getUTCFullYear();
+    if (unit === 'day') return [DOW[d.getUTCDay()], m + ' ' + day];
+    if (unit === 'week') return [m + ' ' + day, 'week'];
+    if (unit === 'month') return [m, String(y)];
+    return [String(y), ''];
+  }
+  function longLabel(start, unit) {
+    var d = pd(start), m = MON[d.getUTCMonth()], y = d.getUTCFullYear();
+    if (unit === 'day') return DOW[d.getUTCDay()] + ', ' + m + ' ' + d.getUTCDate() + ', ' + y;
+    if (unit === 'week') { var e = pd(addDays(start, 6)); return 'Week of ' + m + ' ' + d.getUTCDate() + (e.getUTCFullYear() !== y ? ', ' + y : '') + ' – ' + MON[e.getUTCMonth()] + ' ' + e.getUTCDate() + ', ' + e.getUTCFullYear(); }
+    if (unit === 'month') return m + ' ' + y;
+    return String(y);
+  }
+  function niceDate(s) { if (!s) return '—'; var d = pd(s); return MON[d.getUTCMonth()] + ' ' + d.getUTCDate() + ', ' + d.getUTCFullYear(); }
+  function fmt(n) { return Number(n).toLocaleString('en-US'); }
+
+  // ---------------------------------------------------------------- data prep
+  function prep(d) {
+    var gi = {}; d.games.forEach(function (g) { gi[g.id] = g; });
+    // games that were played but aren't in the arcade list any more still count
+    d.plays.forEach(function (r) { if (!gi[r[1]]) { gi[r[1]] = { id: r[1], title: r[1], emoji: '🎮' }; d.games.push(gi[r[1]]); } });
+    d.gi = gi;
+    d.players.forEach(function (p, i) { p.i = i; p.total = 0; p.byGame = {}; p.last = ''; p.first = ''; });
+    d.plays.forEach(function (r) {
+      var p = d.players[r[0]]; p.total += r[3]; p.byGame[r[1]] = (p.byGame[r[1]] || 0) + r[3];
+      if (r[2] > p.last) p.last = r[2]; if (!p.first || r[2] < p.first) p.first = r[2];
+    });
+    return d;
+  }
+
+  // ---------------------------------------------------------------- render
+  function renderAll() { renderKpis(); renderControls(); renderChart1(); renderPlayerSel(); renderChart2(); renderGames(); renderPlayers(); }
+
+  function renderKpis() {
+    var d = DATA, wk = addDays(d.today, -6), total = 0, act = {}, recentPlays = 0, byGame = {};
+    d.plays.forEach(function (r) { total += r[3]; byGame[r[1]] = (byGame[r[1]] || 0) + r[3]; if (r[2] >= wk) { act[r[0]] = 1; recentPlays += r[3]; } });
+    var real = d.players.filter(function (p) { return !p.gone; });
+    var newWk = real.filter(function (p) { return p.made && p.made >= wk; }).length;
+    var top = Object.keys(byGame).sort(function (a, b) { return byGame[b] - byGame[a]; })[0];
+    var tiles = [
+      ['Players', fmt(real.length), newWk ? '+' + newWk + ' new in the last 7 days' : 'none new in the last 7 days'],
+      ['Games played', fmt(total), 'all time'],
+      ['Played this week', fmt(recentPlays), 'last 7 days'],
+      ['Active players', fmt(Object.keys(act).length), 'played in the last 7 days'],
+      ['Most played', top ? (d.gi[top].emoji + ' ' + d.gi[top].title) : '—', top ? fmt(byGame[top]) + ' plays' : '', true]
+    ];
+    var box = $('kpis'); box.innerHTML = '';
+    tiles.forEach(function (t) {
+      var k = el('div', 'kpi'); k.appendChild(el('div', 'k', t[0])); k.appendChild(el('div', 'v' + (t[3] ? ' small' : ''), t[1])); k.appendChild(el('div', 'd', t[2])); box.appendChild(k);
+    });
+  }
+
+  function renderControls() {
+    var gs = $('gameSel'); gs.innerHTML = '';
+    var o = el('option', '', 'All Games'); o.value = 'all'; gs.appendChild(o);
+    DATA.games.forEach(function (g) { var x = el('option', '', g.emoji + ' ' + g.title); x.value = g.id; gs.appendChild(x); });
+    if (st.game !== 'all' && !DATA.gi[st.game]) st.game = 'all';
+    gs.value = st.game;
+    paintSeg();
+  }
+  function paintSeg() {
+    [].forEach.call($('unitSeg').children, function (b) { b.setAttribute('aria-pressed', b.dataset.u === st.unit); });
+    [].forEach.call($('metricSeg').children, function (b) { b.setAttribute('aria-pressed', b.dataset.m === st.metric); });
+    $('nextBtn').disabled = st.back <= 0;
+  }
+  $('unitSeg').addEventListener('click', function (e) { var u = e.target.dataset && e.target.dataset.u; if (!u) return; st.unit = u; st.back = 0; remember(); paintSeg(); renderChart1(); });
+  $('metricSeg').addEventListener('click', function (e) { var m = e.target.dataset && e.target.dataset.m; if (!m) return; st.metric = m; remember(); paintSeg(); renderChart1(); });
+  $('gameSel').addEventListener('change', function () { st.game = this.value; remember(); renderChart1(); });
+  $('prevBtn').addEventListener('click', function () { st.back += 7; paintSeg(); renderChart1(); });
+  $('nextBtn').addEventListener('click', function () { st.back = Math.max(0, st.back - 7); paintSeg(); renderChart1(); });
+  $('tbl1Btn').addEventListener('click', function () { st.showTbl = !st.showTbl; renderChart1(); });
+
+  // Chart 1: 7 periods ending at the current one (or earlier with ‹)
+  function series1() {
+    var u = st.unit, end = shift(periodStart(DATA.today, u), u, -st.back), starts = [];
+    for (var i = 6; i >= 0; i--) starts.push(shift(end, u, -i));
+    var idx = {}; starts.forEach(function (s, i) { idx[s] = i; });
+    var vals = [0, 0, 0, 0, 0, 0, 0], who = starts.map(function () { return {}; });
+    DATA.plays.forEach(function (r) {
+      if (st.game !== 'all' && r[1] !== st.game) return;
+      var k = idx[periodStart(r[2], u)];
+      if (k === undefined) return;
+      if (st.metric === 'plays') vals[k] += r[3]; else who[k][r[0]] = 1;
+    });
+    if (st.metric === 'players') vals = who.map(function (w) { return Object.keys(w).length; });
+    return { starts: starts, vals: vals };
+  }
+  function renderChart1() {
+    var s = series1(), u = st.unit;
+    var g = st.game === 'all' ? 'All Games' : DATA.gi[st.game].title;
+    $('c1Title').textContent = (st.metric === 'plays' ? 'Games played' : 'Players who played') + ' — ' + g;
+    var sum = s.vals.reduce(function (a, b) { return a + b; }, 0);
+    $('c1Sub').textContent = longLabel(s.starts[0], u).replace(/^Week of /, 'Weeks of ') .split(' – ')[0] + ' to ' + longLabel(s.starts[6], u).replace(/^Week of /, '').split(' – ').pop() +
+      (st.metric === 'plays' ? ' · ' + fmt(sum) + ' plays in all' : '');
+    var labels = s.starts.map(function (x) { return label(x, u); });
+    var tips = s.starts.map(function (x, i) {
+      return [longLabel(x, u), fmt(s.vals[i]) + (st.metric === 'plays' ? (s.vals[i] === 1 ? ' play' : ' plays') : (s.vals[i] === 1 ? ' player' : ' players'))];
+    });
+    columnChart($('chart1'), labels, s.vals, tips);
+    // number table (accessible view of the same numbers)
+    var t = $('tbl1'); t.hidden = !st.showTbl; $('tbl1Btn').textContent = st.showTbl ? 'Hide numbers' : 'Show numbers';
+    if (st.showTbl) {
+      var tb = el('table'), hr = el('tr'); hr.appendChild(el('th', '', u === 'week' ? 'Week of' : u.charAt(0).toUpperCase() + u.slice(1))); hr.appendChild(el('th', 'num', st.metric === 'plays' ? 'Plays' : 'Players')); tb.appendChild(hr);
+      s.starts.forEach(function (x, i) { var r = el('tr'); r.appendChild(el('td', '', longLabel(x, u).replace(/^Week of /, ''))); r.appendChild(el('td', 'num', fmt(s.vals[i]))); tb.appendChild(r); });
+      t.innerHTML = ''; t.appendChild(tb);
+    }
+  }
+
+  function niceMax(v) {
+    if (v <= 4) return { max: 4, step: 1 };
+    var raw = v / 4, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag;
+    var step = (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * mag;
+    if (step < 1) step = 1;
+    return { max: Math.ceil(v / step) * step, step: step };
+  }
+
+  var tip = $('tip');
+  function showTip(box, x, y, lines) {
+    tip.innerHTML = ''; tip.appendChild(el('div', 'm', lines[0])); tip.appendChild(el('b', '', lines[1]));
+    var r = box.getBoundingClientRect();
+    tip.style.left = Math.min(window.innerWidth - 90, Math.max(90, r.left + x)) + 'px';
+    tip.style.top = (r.top + y + window.scrollY) + 'px';
+    tip.classList.add('show');
+  }
+  function hideTip() { tip.classList.remove('show'); }
+  var NS = 'http://www.w3.org/2000/svg';
+  function sv(tag, attrs, text) { var n = document.createElementNS(NS, tag); for (var k in attrs) n.setAttribute(k, attrs[k]); if (text != null) n.textContent = text; return n; }
+  function roundTop(x, y, w, h, r) {           // bar with 4px rounded data-end, square on the baseline
+    r = Math.min(r, w / 2, h);
+    return 'M' + x + ' ' + (y + h) + 'V' + (y + r) + 'Q' + x + ' ' + y + ' ' + (x + r) + ' ' + y + 'H' + (x + w - r) + 'Q' + (x + w) + ' ' + y + ' ' + (x + w) + ' ' + (y + r) + 'V' + (y + h) + 'Z';
+  }
+  function roundEnd(x, y, w, h, r) {           // horizontal bar, rounded at the right end
+    r = Math.min(r, h / 2, w);
+    return 'M' + x + ' ' + y + 'H' + (x + w - r) + 'Q' + (x + w) + ' ' + y + ' ' + (x + w) + ' ' + (y + r) + 'V' + (y + h - r) + 'Q' + (x + w) + ' ' + (y + h) + ' ' + (x + w - r) + ' ' + (y + h) + 'H' + x + 'Z';
+  }
+
+  function columnChart(box, labels, vals, tips) {
+    box.innerHTML = '';
+    var W = Math.max(300, box.clientWidth || 600), H = 260, L = 40, R = 8, T = 12, B = 44;
+    var pw = W - L - R, ph = H - T - B, n = vals.length, slot = pw / n, bw = Math.min(56, slot * 0.58);
+    var nm = niceMax(Math.max.apply(null, vals)), svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': $('c1Title').textContent });
+    for (var v = 0; v <= nm.max + 1e-9; v += nm.step) {
+      var y = T + ph - v / nm.max * ph;
+      if (v > 0) svg.appendChild(sv('line', { 'class': 'gl', x1: L, x2: W - R, y1: y, y2: y }));
+      svg.appendChild(sv('text', { 'class': 'tick', x: L - 8, y: y + 4, 'text-anchor': 'end' }, fmt(v)));
+    }
+    svg.appendChild(sv('line', { 'class': 'base', x1: L, x2: W - R, y1: T + ph, y2: T + ph }));
+    vals.forEach(function (val, i) {
+      var cx = L + slot * (i + 0.5), h = val / nm.max * ph, g = sv('g', {});
+      var hit = sv('rect', { 'class': 'hit', x: cx - slot / 2, y: T, width: slot, height: ph + B });
+      g.appendChild(hit);
+      if (val > 0) g.appendChild(sv('path', { 'class': 'bar', d: roundTop(cx - bw / 2, T + ph - Math.max(h, 2), bw, Math.max(h, 2), 4) }));
+      else g.appendChild(sv('rect', { 'class': 'zero', x: cx - bw / 2, y: T + ph - 1, width: bw, height: 1 }));
+      var l = labels[i];
+      g.appendChild(sv('text', { 'class': 'xl', x: cx, y: T + ph + 18, 'text-anchor': 'middle' }, l[0]));
+      if (l[1] && l[1] !== 'week') g.appendChild(sv('text', { 'class': 'xl2', x: cx, y: T + ph + 33, 'text-anchor': 'middle' }, l[1]));
+      // the most recent bar wears its number; the rest show theirs on hover (or in the number table)
+      if (i === n - 1 && val > 0) g.appendChild(sv('text', { 'class': 'vl', x: cx, y: T + ph - h - 7, 'text-anchor': 'middle' }, fmt(val)));
+      function on() { g.classList.add('on'); showTip(box, cx / W * box.clientWidth, (T + ph - h) / H * box.clientHeight, tips[i]); }
+      function off() { g.classList.remove('on'); hideTip(); }
+      hit.addEventListener('pointerenter', on); hit.addEventListener('pointerleave', off);
+      hit.addEventListener('pointerdown', on);
+      svg.appendChild(g);
+    });
+    box.appendChild(svg);
+  }
+
+  // Chart 2: one player (or everyone) across all games
+  function renderPlayerSel() {
+    var ps = $('playerSel'); ps.innerHTML = '';
+    var all = el('option', '', 'Everyone (all players)'); all.value = 'all'; ps.appendChild(all);
+    var list = DATA.players.filter(function (p) { return !p.gone || p.total; }).slice().sort(function (a, b) { return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1; });
+    list.forEach(function (p) {
+      var o = el('option', '', p.name + (p.user && p.user.toLowerCase() !== p.name.toLowerCase() ? ' (' + p.user + ')' : '') + ' — ' + fmt(p.total) + (p.total === 1 ? ' play' : ' plays'));
+      o.value = String(p.i); ps.appendChild(o);
+    });
+    if (st.player === null || (st.player !== 'all' && !DATA.players[st.player])) {
+      var top = DATA.players.slice().sort(function (a, b) { return b.total - a.total; })[0];
+      st.player = top && top.total ? String(top.i) : 'all';
+    }
+    ps.value = String(st.player);
+  }
+  $('playerSel').addEventListener('change', function () { st.player = this.value; renderChart2(); });
+  function renderChart2() {
+    var by = {}, p = null, facts = $('pFacts');
+    if (st.player === 'all') { DATA.players.forEach(function (q) { for (var g in q.byGame) by[g] = (by[g] || 0) + q.byGame[g]; }); }
+    else { p = DATA.players[+st.player]; by = p.byGame; }
+    var rows = DATA.games.map(function (g) { return { g: g, n: by[g.id] || 0 }; }).sort(function (a, b) { return b.n - a.n || (a.g.title < b.g.title ? -1 : 1); });
+    var total = rows.reduce(function (a, r) { return a + r.n; }, 0);
+    facts.innerHTML = '';
+    function fact(k, v) { var s = el('span', '', k + ' '); s.appendChild(el('b', '', v)); facts.appendChild(s); }
+    fact('Total', fmt(total) + (total === 1 ? ' play' : ' plays'));
+    if (p) {
+      if (rows[0] && rows[0].n) fact('Favorite', rows[0].g.title);
+      fact('Last played', niceDate(p.last));
+      fact('Joined', niceDate(p.made || p.first));
+      fact('Scores saved', fmt(p.scores));
+    }
+    barList($('chart2'), rows, total);
+  }
+  function barList(box, rows, total) {
+    box.innerHTML = '';
+    if (!total) { box.appendChild(el('div', 'empty', 'No games played yet.')); return; }
+    var W = Math.max(280, box.clientWidth || 420), rowH = 34, LBL = Math.min(190, W * 0.42), VAL = 44, H = rows.length * rowH + 4;
+    var mx = Math.max.apply(null, rows.map(function (r) { return r.n; })), pw = W - LBL - VAL;
+    var svg = sv('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': 'Plays per game' });
+    rows.forEach(function (r, i) {
+      var y = i * rowH + 4, bh = 18, w = mx ? r.n / mx * pw : 0, g = sv('g', {});
+      var hit = sv('rect', { 'class': 'hit', x: 0, y: y, width: W, height: rowH });
+      g.appendChild(hit);
+      var title = r.g.emoji + ' ' + r.g.title;
+      if (title.length > LBL / 7.2) title = title.slice(0, Math.floor(LBL / 7.2) - 1) + '…';
+      g.appendChild(sv('text', { 'class': 'xl', x: 0, y: y + bh / 2 + 9 }, title));
+      if (r.n) g.appendChild(sv('path', { 'class': 'bar', d: roundEnd(LBL, y + 4, Math.max(w, 3), bh, 4) }));
+      else g.appendChild(sv('rect', { 'class': 'zero', x: LBL, y: y + 4, width: 1, height: bh }));
+      g.appendChild(sv('text', { 'class': 'vl', x: LBL + Math.max(w, 3) + 8, y: y + bh / 2 + 9 }, fmt(r.n)));
+      var pct = total ? Math.round(r.n / total * 100) : 0;
+      function on() { g.classList.add('on'); showTip(box, (LBL + Math.max(w, 3) / 2) / W * box.clientWidth, y / H * box.clientHeight, [r.g.title, fmt(r.n) + (r.n === 1 ? ' play' : ' plays') + ' · ' + pct + '%']); }
+      function off() { g.classList.remove('on'); hideTip(); }
+      hit.addEventListener('pointerenter', on); hit.addEventListener('pointerleave', off); hit.addEventListener('pointerdown', on);
+      svg.appendChild(g);
+    });
+    box.appendChild(svg);
+  }
+
+  // Games table
+  function renderGames() {
+    var d = DATA, wk = addDays(d.today, -6), mo = addDays(d.today, -29), s = {};
+    d.games.forEach(function (g) { s[g.id] = { all: 0, wk: 0, mo: 0, who: {}, last: '' }; });
+    d.plays.forEach(function (r) { var x = s[r[1]]; x.all += r[3]; if (r[2] >= wk) x.wk += r[3]; if (r[2] >= mo) x.mo += r[3]; x.who[r[0]] = 1; if (r[2] > x.last) x.last = r[2]; });
+    var t = $('gamesTbl'); t.innerHTML = '';
+    var h = el('tr'); [['Game', ''], ['Plays (all time)', 'num'], ['Last 30 days', 'num'], ['Last 7 days', 'num'], ['Players', 'num'], ['Last played', '']].forEach(function (c) { h.appendChild(el('th', c[1], c[0])); });
+    t.appendChild(h);
+    d.games.slice().sort(function (a, b) { return s[b.id].all - s[a.id].all; }).forEach(function (g) {
+      var x = s[g.id], r = el('tr');
+      r.appendChild(el('td', '', g.emoji + ' ' + g.title));
+      r.appendChild(el('td', 'num', fmt(x.all))); r.appendChild(el('td', 'num', fmt(x.mo))); r.appendChild(el('td', 'num', fmt(x.wk)));
+      r.appendChild(el('td', 'num', fmt(Object.keys(x.who).length))); r.appendChild(el('td', '', niceDate(x.last)));
+      t.appendChild(r);
+    });
+  }
+
+  // Players table (with Rename / Delete)
+  $('pSearch').addEventListener('input', function () { st.q = this.value.trim().toLowerCase(); renderPlayers(); });
+  function renderPlayers() {
+    var t = $('playersTbl'); t.innerHTML = '';
+    var cols = [['name', 'Player', ''], ['made', 'Joined', ''], ['plays', 'Plays', 'num'], ['scores', 'Scores saved', 'num'], ['last', 'Last played', ''], ['', '', 'act']];
+    var h = el('tr');
+    cols.forEach(function (c) {
+      var th = el('th', c[2] + (c[0] ? ' sortable' : ''), c[1]);
+      if (c[0]) {
+        if (st.sort === c[0]) th.appendChild(el('span', 'arr', st.dir > 0 ? '▲' : '▼'));
+        th.addEventListener('click', function () { if (st.sort === c[0]) st.dir = -st.dir; else { st.sort = c[0]; st.dir = c[0] === 'name' ? 1 : -1; } renderPlayers(); });
+      }
+      h.appendChild(th);
+    });
+    t.appendChild(h);
+    var list = DATA.players.filter(function (p) { return !p.gone && (!st.q || p.name.toLowerCase().indexOf(st.q) >= 0 || p.user.toLowerCase().indexOf(st.q) >= 0); });
+    var key = { name: function (p) { return p.name.toLowerCase(); }, made: function (p) { return p.made || ''; }, plays: function (p) { return p.total; }, scores: function (p) { return p.scores; }, last: function (p) { return p.last || ''; } }[st.sort];
+    list.sort(function (a, b) { var x = key(a), y = key(b); return (x < y ? -1 : x > y ? 1 : 0) * st.dir; });
+    if (!list.length) { var r0 = el('tr'), td0 = el('td', '', st.q ? 'No players match.' : 'No players yet.'); td0.colSpan = 6; td0.style.color = 'var(--muted)'; r0.appendChild(td0); t.appendChild(r0); return; }
+    list.forEach(function (p) {
+      var r = el('tr'), nm = el('td');
+      nm.appendChild(document.createTextNode(p.name));
+      if (p.user && p.user.toLowerCase() !== p.name.toLowerCase()) { nm.appendChild(document.createElement('br')); nm.appendChild(el('span', 'u', 'user name: ' + p.user)); }
+      if (p.old) nm.appendChild(el('span', 'tag', 'not signed in since Google sign-in'));
+      r.appendChild(nm);
+      r.appendChild(el('td', '', niceDate(p.made)));
+      r.appendChild(el('td', 'num', fmt(p.total)));
+      r.appendChild(el('td', 'num', fmt(p.scores)));
+      r.appendChild(el('td', '', niceDate(p.last)));
+      var act = el('td', 'act');
+      var rn = el('button', 'btn sm', 'Rename'); rn.type = 'button'; rn.addEventListener('click', function () { renameDlg(p); });
+      var del = el('button', 'btn sm danger', 'Delete'); del.type = 'button'; del.addEventListener('click', function () { deleteDlg(p); });
+      act.appendChild(rn); act.appendChild(del); r.appendChild(act);
+      t.appendChild(r);
+    });
+  }
+
+  // ---------------------------------------------------------------- dialogs
+  var modal = $('modal'), mc = $('modalCard');
+  function openModal(build) { mc.innerHTML = ''; build(mc); modal.hidden = false; var f = mc.querySelector('input,select,button'); if (f) setTimeout(function () { f.focus(); }, 20); }
+  function closeModal() { modal.hidden = true; }
+  modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) closeModal(); });
+  function btns(card, okText, okCls, onOk) {
+    var err = el('div', 'err'); card.appendChild(err);
+    var b = el('div', 'btns'), c = el('button', 'btn', 'Cancel'), ok = el('button', 'btn ' + okCls, okText);
+    c.type = ok.type = 'button'; c.addEventListener('click', closeModal);
+    ok.addEventListener('click', function () { onOk(ok, err); });
+    b.appendChild(c); b.appendChild(ok); card.appendChild(b);
+    return { ok: ok, err: err };
+  }
+  function busy(ok, text) { ok.disabled = true; ok.dataset.t = ok.textContent; ok.textContent = text; }
+  function unbusy(ok) { ok.disabled = false; ok.textContent = ok.dataset.t; }
+
+  function renameDlg(p) {
+    openModal(function (card) {
+      card.appendChild(el('h2', '', 'Rename ' + p.name));
+      card.appendChild(el('p', '', 'This is the name shown on the leaderboards' + (p.user ? '. Their sign-in name (' + p.user + ') stays the same.' : '.')));
+      var inp = el('input'); inp.type = 'text'; inp.value = p.name; inp.maxLength = 24; card.appendChild(inp);
+      var b = btns(card, 'Save', 'primary', function (ok, err) {
+        var v = inp.value.replace(/\s+/g, ' ').trim(); if (!v || v === p.name) { closeModal(); return; }
+        busy(ok, 'Saving…'); err.textContent = '';
+        server('apRename', [token, p.key, v], function () { closeModal(); load(true); }, function (e) { unbusy(ok); err.textContent = e.message; });
+      });
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') b.ok.click(); });
+    });
+  }
+
+  function deleteDlg(p) {
+    openModal(function (card) {
+      card.appendChild(el('h2', '', 'Delete ' + p.name + '?'));
+      card.appendChild(el('p', '', p.name + ' has ' + fmt(p.total) + (p.total === 1 ? ' play' : ' plays') + ' and ' + fmt(p.scores) + (p.scores === 1 ? ' saved score.' : ' saved scores.') + ' The player is removed from the sign-in list.'));
+      var o1 = el('label', 'opt'), r1 = el('input'); r1.type = 'radio'; r1.name = 'how'; r1.checked = true;
+      var t1 = el('div'); t1.appendChild(el('b', '', 'Erase their scores and plays too'));
+      o1.appendChild(r1); o1.appendChild(t1); card.appendChild(o1);
+      var o2 = el('label', 'opt'), r2 = el('input'); r2.type = 'radio'; r2.name = 'how';
+      var t2 = el('div'); t2.style.flex = '1'; t2.appendChild(el('b', '', 'Move their scores and plays to another player'));
+      var sel = el('select'); var others = DATA.players.filter(function (q) { return !q.gone && q !== p; }).sort(function (a, b) { return a.name.toLowerCase() < b.name.toLowerCase() ? -1 : 1; });
+      // put same-looking names first: the usual reason for deleting is a duplicate
+      var norm = function (s) { return String(s).toLowerCase().replace(/[^a-z0-9]/g, ''); };
+      others.sort(function (a, b) { var x = norm(a.name).indexOf(norm(p.name).slice(0, 4)) === 0 ? 0 : 1, y = norm(b.name).indexOf(norm(p.name).slice(0, 4)) === 0 ? 0 : 1; return x - y; });
+      others.forEach(function (q) { var o = el('option', '', q.name + (q.user && q.user !== q.name ? ' (' + q.user + ')' : '')); o.value = q.key; sel.appendChild(o); });
+      sel.addEventListener('focus', function () { r2.checked = true; });
+      t2.appendChild(sel); o2.appendChild(r2); o2.appendChild(t2); card.appendChild(o2);
+      if (!others.length) { o2.style.display = 'none'; }
+      btns(card, 'Delete player', 'danger solid', function (ok, err) {
+        busy(ok, 'Deleting…'); err.textContent = '';
+        server('apDelete', [token, p.key, r2.checked ? sel.value : null], function () { closeModal(); load(true); }, function (e) { unbusy(ok); err.textContent = e.message; });
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- settings
+  $('pwForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('pwErr'); err.className = 'err'; err.textContent = '';
+    var a = $('pwCur').value, b = $('pwNew').value, c = $('pwNew2').value;
+    if (b.length < 8) { err.textContent = 'The new password needs at least 8 characters.'; return; }
+    if (b !== c) { err.textContent = 'The two new passwords don\'t match.'; return; }
+    $('pwBtn').disabled = true;
+    server('apChangePassword', [token, a, b], function () {
+      $('pwBtn').disabled = false; $('pwCur').value = $('pwNew').value = $('pwNew2').value = '';
+      err.className = 'okmsg'; err.textContent = 'Admin password changed.';
+    }, function (e2) { $('pwBtn').disabled = false; err.textContent = e2.message; });
+  });
+  $('eraseBtn').addEventListener('click', function () {
+    var err = $('eraseErr'); err.textContent = '';
+    if ($('eraseTxt').value !== 'ERASE') { err.textContent = 'Type ERASE (in capitals) first.'; return; }
+    if (!confirm('Really erase EVERY player, score and play? This can\'t be undone.')) return;
+    $('eraseBtn').disabled = true;
+    server('apEraseAll', [token, 'ERASE'], function () { $('eraseBtn').disabled = false; $('eraseTxt').value = ''; signOut(); $('loginErr').textContent = 'Everything was erased. Sign in again.'; },
+      function (e) { $('eraseBtn').disabled = false; err.textContent = e.message; });
+  });
+
+  var rt = null;
+  window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { if (DATA && !$('dash').hidden) { renderChart1(); renderChart2(); } }, 120); });
+
+  // ---------------------------------------------------------------- importing the Apps Script export
+  function readExport(file, cb) {
+    if (!file) { cb(new Error('Choose the export file first.')); return; }
+    var fr = new FileReader();
+    fr.onload = function () {
+      var d; try { d = JSON.parse(fr.result); } catch (e) { cb(new Error('That file isn\'t an export file.')); return; }
+      if (!d || d.kind !== 'ruben-games-export') { cb(new Error('That file isn\'t a Ruben Games export file.')); return; }
+      cb(null, d);
+    };
+    fr.onerror = function () { cb(new Error('Couldn\'t read that file.')); };
+    fr.readAsText(file);
+  }
+  // Sends the file a few hundred rows at a time; status(text) shows progress.
+  function sendImport(d, auth, status, done, fail) {
+    var parts = [], N = 400;
+    ['players', 'scores', 'plays'].forEach(function (k) {
+      var a = d[k] || [];
+      for (var i = 0; i < a.length; i += N) { var p = {}; p[k] = a.slice(i, i + N); parts.push(p); }
+    });
+    if (!parts.length) parts.push({});
+    var total = (d.players || []).length + (d.scores || []).length + (d.plays || []).length, sent = 0, i = 0;
+    (function next() {
+      var p = parts[i]; p.last = i === parts.length - 1;
+      if (auth.password !== undefined) { p.adminHash = d.adminHash; p.password = auth.password; }
+      status('Importing… ' + Math.round(sent / Math.max(1, total) * 100) + '%');
+      server('apImport', [auth.token || null, p], function (r) {
+        sent += (p.players || p.scores || p.plays || []).length; i++;
+        if (r && r.done) done(r); else if (i < parts.length) next(); else done(r || {});
+      }, fail);
+    })();
+  }
+  $('setupForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = $('setupErr'), btn = $('setupBtn'); err.className = 'err'; err.textContent = '';
+    var pw = $('setupPw').value;
+    if (!pw) { err.textContent = 'Type your admin password.'; return; }
+    readExport($('setupFile').files[0], function (er, d) {
+      if (er) { err.textContent = er.message; return; }
+      btn.disabled = true;
+      sendImport(d, { password: pw }, function (t) { btn.textContent = t; }, function (r) {
+        btn.disabled = false; btn.textContent = 'Import and finish setup'; $('setupPw').value = '';
+        if (r.token) { token = r.token; try { store && store.setItem(TOKEN_KEY, token); } catch (e2) {} load(); }
+        else showLogin();
+      }, function (e2) { btn.disabled = false; btn.textContent = 'Import and finish setup'; err.textContent = e2.message; });
+    });
+  });
+  $('impBtn').addEventListener('click', function () {
+    var err = $('impErr'), btn = $('impBtn'); err.className = 'err'; err.textContent = '';
+    readExport($('impFile').files[0], function (er, d) {
+      if (er) { err.textContent = er.message; return; }
+      btn.disabled = true;
+      sendImport(d, { token: token }, function (t) { btn.textContent = t; }, function (r) {
+        btn.disabled = false; btn.textContent = 'Import file'; $('impFile').value = '';
+        var c = r.counts || {};
+        err.className = 'okmsg'; err.textContent = 'Done. The arcade now has ' + fmt(c.players || 0) + ' players, ' + fmt(c.scores || 0) + ' scores and ' + fmt(c.plays || 0) + ' plays.';
+        load(true);
+      }, function (e2) { btn.disabled = false; btn.textContent = 'Import file'; err.textContent = e2.message; });
+    });
+  });
+
+  // ---------------------------------------------------------------- go
+  if (token) load();
+  else server('apStatus', [], function (r) {
+    if (r && r.ready) showLogin();
+    else { $('login').hidden = true; $('setup').hidden = false; $('loading').hidden = true; }
+  }, function () { showLogin(); });
+})();
+</script>
+</body>
+</html>

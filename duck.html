@@ -1,0 +1,1931 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Duck Dynasty · Ruben Games</title>
+<meta name="description" content="Fly a glider through a red-rock canyon catching ducks for Thanksgiving dinner. Dodge the walls and the duck-stealing eagles!">
+<meta property="og:title" content="Duck Dynasty · Ruben Games"><meta property="og:description" content="Fly a glider through a red-rock canyon catching ducks for Thanksgiving dinner. Dodge the walls and the duck-stealing eagles!"><meta property="og:site_name" content="Ruben Games">
+<meta name="theme-color" content="#0d1016">
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="rg-api.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Lilita+One&display=swap" rel="stylesheet">
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #2a1408;
+    font-family: 'Fredoka', 'Trebuchet MS', Arial, sans-serif; color: #fff4e3; user-select: none;
+    -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent; }
+  #game { display: block; width: 100vw; height: 100vh; touch-action: none; }
+  #hud { position: fixed; top: 10px; left: 0; right: 0; display: flex; justify-content: space-between;
+    align-items: center; gap: 10px; padding: 0 16px; font-size: 23px; font-weight: 600; pointer-events: none; z-index: 6; }
+  .pill { background: rgba(40,18,6,0.62); border: 1px solid rgba(255,230,190,0.25); padding: 6px 15px;
+    border-radius: 999px; white-space: nowrap; }
+  #time.low { color: #ff8a65; }
+  #ducks.pop { animation: pop .3s ease; }
+  #ducks.ouch { animation: ouch .5s ease; }
+  @keyframes pop { 50% { transform: scale(1.25); } }
+  @keyframes ouch { 20%, 60% { transform: translateX(-7px); color: #ff8a65; } 40%, 80% { transform: translateX(7px); color: #ff8a65; } }
+  #overlay { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center;
+    justify-content: safe center; text-align: center; background: rgba(42, 20, 8, 0.8); padding: 16px;
+    overflow-y: auto; box-sizing: border-box; }
+  #overlay[hidden] { display: none; }
+  h1 { font-family: 'Lilita One', 'Fredoka', sans-serif; font-weight: normal; color: #ffb347;
+    font-size: clamp(44px, 8vw, 84px); margin: 0 0 4px; letter-spacing: 1px;
+    text-shadow: 0 4px 0 #7a2e0e, 0 8px 24px rgba(0,0,0,0.45); }
+  .sub { color: #f3c99a; font-size: clamp(15px, 2vw, 19px); margin: 0 0 14px; }
+  #msg { font-size: clamp(16px, 2.3vw, 20px); max-width: 640px; line-height: 1.5; margin: 0 0 20px; color: #f7e4cc; }
+  #msg b { color: #ffd27a; }
+  .keys { display: inline-block; min-width: 1.6em; padding: 0 6px; border-radius: 6px; background: #4a2610;
+    border: 1px solid #a8683a; box-shadow: 0 2px 0 #a8683a; font-size: 0.85em; color: #fff4e3; }
+  #btn { font: inherit; font-size: 24px; font-weight: 600; padding: 12px 42px; border: 0; border-radius: 999px;
+    background: #ff9a3c; color: #3a1505; cursor: pointer; box-shadow: 0 4px 0 #a5521a, 0 0 26px rgba(255,154,60,0.4); }
+  #btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #a5521a; }
+  #home { margin-top: 18px; color: #d9b48f; font-size: 18px; text-decoration: none; }
+  #home:hover { color: #ffd27a; }
+  /* Difficulty picker */
+  .diff { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 0 0 6px; }
+  .diff button { font: inherit; font-size: 18px; font-weight: 600; padding: 7px 22px; border-radius: 999px; cursor: pointer;
+    background: rgba(255,244,227,0.1); color: #fff4e3; border: 2px solid rgba(255,230,190,0.45); box-shadow: none; }
+  .diff button.on { background: #ffb347; border-color: #ffb347; color: #3a1505; }
+  #steer { display: none; align-items: center; margin: 4px 0 8px; font-size: 15px; color: #d9b48f; }
+  body.touchdev #steer { display: flex; }
+  #steer button { font-size: 15px; padding: 5px 14px; }
+  #steer button.inv.on { background: rgba(255,179,71,0.28); color: #fff4e3; border-color: #ffb347; }
+  #lvlNote { margin: 0 0 16px; font-size: 15px; color: #d9b48f; min-height: 1.2em; }
+  #best { visibility: hidden; }   /* best scores live on the leaderboard; the player's name takes this corner */
+  #me { --lb-chip: rgba(40,18,6,0.62); }
+
+  /* Phone / tablet controls: ◀ ▶ for the left thumb, ▲ ▼ stacked for the right thumb.
+     A touch anywhere near a button counts, so clumsy thumbs still hit. */
+  #touch { position: fixed; inset: 0; z-index: 5; display: none; touch-action: none; }
+  #touch.on { display: block; }
+  .tbtn { position: absolute; box-sizing: border-box; border-radius: 26px; display: flex; align-items: center;
+    justify-content: center; background: rgba(255,244,227,0.22); border: 3px solid rgba(255,244,227,0.6);
+    color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.4); box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    pointer-events: none; transition: transform .06s ease, background .06s ease; }
+  .tbtn.down { background: rgba(255,170,80,0.62); border-color: #ffd27a; transform: scale(0.94); }
+  @media (max-width: 560px) {
+    #hud { font-size: 18px; gap: 6px; padding: 0 8px; top: 8px; }
+    .pill { padding: 4px 10px; }
+    #best { display: none; }
+  }
+  @media (max-height: 560px) {
+    h1 { font-size: 40px; }
+    .sub { margin-bottom: 6px; font-size: 14px; }
+    #msg { font-size: 14px; margin-bottom: 10px; line-height: 1.35; }
+    #btn { font-size: 20px; padding: 9px 32px; }
+    #home { margin-top: 10px; font-size: 15px; }
+  }
+</style>
+<!-- Ruben Games shared leaderboard panel (HTML file named "lbpanel" in Apps Script).
+     Games pull it in with the include scriptlet, and it pulls in the shared sign-in file ("auth").
+     Then:  var lb = RubenLB.create({ game: 'duck', column: 'Ducks', meEl: ..., boardEl: ..., level: 'easy' });
+            lb.setLevel('hard');  lb.beginRun();  lb.finishRun(score, outcome);
+     meEl holds the player's head button (menu: Edit Player Name / Switch Player / Sign Out).
+     Colours come from CSS variables the game can set on the two elements (see .rlb defaults below). -->
+<!-- Ruben Games sign-in (HTML file named "auth" in Apps Script).
+     Every page pulls it in through the shared include (the leaderboard panel includes it for the games).
+     It shows the user name / password screen when nobody is signed in, keeps the player signed in for
+     the rest of the browser session, and draws the little head button with the player menu.
+
+     Page code can use:
+       RubenAuth.token()             the signed-in player's session token (or null)
+       RubenAuth.user()              { name, user } or null   (name = leaderboard name, user = sign-in name)
+       RubenAuth.onUser(fn)          fn(user, why) whenever the player changes; why = boot | signin | rename | signout
+       RubenAuth.mountHead(el)       put the head button + menu inside el
+       RubenAuth.expired()           the server said the session is no good: sign in again -->
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  .rga, .rga * { box-sizing: border-box; }
+  .rga { --a-bg: #0d1016; --a-surface: #151a22; --a-surface2: #1b212b; --a-text: #e9edf3; --a-muted: #97a1b0;
+    --a-border: #2a3240; --a-brand: #f0a64a; --a-err: #ff9d8a;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: var(--a-text);
+    -webkit-user-select: text; user-select: text; }
+
+  /* ---- Head button + menu ---- */
+  .rga-headwrap { position: relative; display: inline-block; line-height: 0; }
+  .rga-headwrap[hidden] { display: none; }
+  .rga-fixed { position: fixed; top: 12px; right: 14px; z-index: 50; }
+  /* The whole pill is the button: "Playing as / Name" next to the head, so everyone can see who's signed in */
+  .rga-pill { display: flex; align-items: center; gap: 10px; margin: 0; padding: 4px 4px 4px 14px; cursor: pointer;
+    border-radius: 999px; max-width: min(300px, calc(100vw - 120px)); text-align: right; line-height: 1.15;
+    background: rgba(14,17,23,0.74); color: #e9edf3; border: 1.5px solid rgba(255,255,255,0.24);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    transition: border-color .15s ease, transform .15s ease; font-family: 'Inter', system-ui, sans-serif; }
+  .rga-pill:hover, .rga-pill[aria-expanded="true"] { border-color: var(--a-brand); }
+  .rga-pill:active { transform: scale(0.97); }
+  .rga-pill:focus-visible { outline: 3px solid rgba(240,166,74,0.5); outline-offset: 2px; }
+  .rga-label { min-width: 0; display: flex; flex-direction: column; align-items: flex-end; }
+  .rga-label small { font-size: 11px; font-weight: 500; color: #aab3c0; letter-spacing: 0.2px; }
+  .rga-label b { font: 600 16px/1.2 'Outfit', sans-serif; color: #fff; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rga-head { width: 34px; height: 34px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    background: rgba(255,255,255,0.12); color: #e9edf3; }
+  .rga-head svg { width: 22px; height: 22px; display: block; }
+  .rga-menu { position: absolute; top: 50px; right: 0; min-width: 230px; padding: 6px; line-height: 1.3; text-align: left;
+    background: var(--a-surface); border: 1px solid var(--a-border); border-radius: 14px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.45); z-index: 60; }
+  .rga-menu[hidden] { display: none; }
+  .rga-who { padding: 8px 12px 10px; border-bottom: 1px solid var(--a-border); margin-bottom: 4px; }
+  .rga-who[hidden] { display: none; }
+  .rga-who small { display: block; color: var(--a-muted); font-size: 12px; }
+  .rga-who b { display: block; font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 18px; margin: 1px 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+  .rga-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: 9px;
+    background: none; color: var(--a-text); font: 500 15px 'Inter', system-ui, sans-serif; cursor: pointer; text-align: left; box-shadow: none; }
+  .rga-item:hover, .rga-item:focus-visible { background: var(--a-surface2); outline: none; }
+  .rga-item svg { width: 18px; height: 18px; flex: none; color: var(--a-muted); }
+
+  /* ---- Sign-in / create player / rename screen ---- */
+  .rga-modal { position: fixed; inset: 0; z-index: 1000; display: flex; padding: 16px; overflow-y: auto;
+    background: rgba(6,8,12,0.8); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  .rga-modal[hidden] { display: none; }
+  .rga-card { margin: auto; width: min(400px, 100%); padding: 26px 24px 20px; border-radius: 20px;
+    background: var(--a-surface); border: 1px solid var(--a-border); box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
+  .rga-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+  .rga-logo { width: 46px; height: 46px; border-radius: 13px; flex: none; display: grid; place-items: center;
+    background: linear-gradient(145deg, #f6b765, #c9662a); color: #1a0e05; font: 700 19px 'Outfit', sans-serif; letter-spacing: 0.5px;
+    box-shadow: 0 6px 18px rgba(240,166,74,0.25); }
+  .rga-title { font: 700 24px/1.1 'Outfit', sans-serif; letter-spacing: -0.3px; }
+  .rga-sub { color: var(--a-muted); font-size: 14.5px; margin-top: 3px; }
+  .rga-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--a-bg); border: 1px solid var(--a-border); margin-bottom: 18px; }
+  .rga-tabs[hidden] { display: none; }
+  .rga-tabs button { flex: 1; height: 38px; border: 0; border-radius: 9px; background: none; color: var(--a-muted); cursor: pointer;
+    font: 600 15px 'Inter', system-ui, sans-serif; box-shadow: none; }
+  .rga-tabs button.on { background: var(--a-surface2); color: var(--a-text); box-shadow: 0 1px 3px rgba(0,0,0,0.35); }
+  .rga-recent { margin-bottom: 14px; }
+  .rga-recent[hidden] { display: none; }
+  .rga-recent > span { display: block; font-size: 13px; color: var(--a-muted); margin-bottom: 7px; }
+  .rga-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .rga-chips button { border: 1px solid var(--a-border); background: var(--a-surface2); color: var(--a-text); cursor: pointer;
+    border-radius: 999px; padding: 6px 13px; font: 500 14px 'Inter', system-ui, sans-serif; box-shadow: none; }
+  .rga-chips button:hover { border-color: var(--a-brand); }
+  .rga-field { display: block; margin-bottom: 14px; }
+  .rga-field > span { display: block; font-size: 13.5px; font-weight: 600; color: #c5cdd8; margin-bottom: 6px; }
+  .rga-field small { display: block; font-size: 12.5px; color: var(--a-muted); margin-top: 6px; }
+  .rga-field small[hidden] { display: none; }
+  .rga-inp { position: relative; }
+  .rga-inp input { width: 100%; height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--a-border);
+    background: var(--a-bg); color: var(--a-text); font: 400 16px 'Inter', system-ui, sans-serif; outline: none; margin: 0; }
+  .rga-inp input:focus { border-color: var(--a-brand); box-shadow: 0 0 0 3px rgba(240,166,74,0.2); }
+  .rga-inp.pw input { padding-right: 70px; }
+  .rga-eye { position: absolute; right: 6px; top: 6px; height: 36px; padding: 0 10px; border: 0; border-radius: 8px; cursor: pointer;
+    background: none; color: var(--a-muted); font: 600 13px 'Inter', system-ui, sans-serif; box-shadow: none; }
+  .rga-eye:hover { color: var(--a-text); background: var(--a-surface2); }
+  .rga-err.ok { color: #7fd99a; }
+  .rga-list { display: flex; flex-direction: column; gap: 6px; margin: -4px 0 12px; max-height: min(46vh, 430px); overflow-y: auto; }
+  .rga-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 12px; border-radius: 12px; cursor: pointer; text-align: left;
+    border: 1px solid var(--a-border); background: var(--a-surface2); color: var(--a-text); font: 500 15px 'Inter', system-ui, sans-serif; box-shadow: none; }
+  .rga-row:hover, .rga-row.hi { border-color: var(--a-brand); background: #232a35; }
+  .rga-face { width: 34px; height: 34px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    background: linear-gradient(145deg, #f6b765, #c9662a); color: #1a0e05; font: 700 16px 'Outfit', sans-serif; }
+  .rga-new .rga-face { background: #2f7d3e; color: #fff; font-size: 20px; }
+  .rga-pick { display: flex; flex-direction: column; min-width: 0; }
+  .rga-pick b { font: 600 16px 'Outfit', sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rga-pick small { color: var(--a-muted); font-size: 12.5px; }
+  .rga-note { color: var(--a-muted); font-size: 14px; padding: 8px 4px; }
+  .rga-note.rga-bad { color: #ff9b8a; }
+  .rga-err { color: var(--a-err); font-size: 14px; min-height: 20px; margin: -2px 0 10px; line-height: 1.4; }
+  .rga-go { width: 100%; height: 50px; border: 0; border-radius: 12px; cursor: pointer; background: var(--a-brand); color: #1a0e05;
+    font: 600 17px 'Outfit', sans-serif; letter-spacing: 0.2px; box-shadow: 0 4px 14px rgba(240,166,74,0.22); }
+  .rga-go:hover { background: #f5b462; }
+  .rga-go:disabled { opacity: 0.65; cursor: default; }
+  .rga-cancel { width: 100%; height: 42px; margin-top: 8px; border: 1px solid var(--a-border); border-radius: 12px; cursor: pointer;
+    background: none; color: var(--a-text); font: 500 15px 'Inter', system-ui, sans-serif; box-shadow: none; }
+  .rga-cancel[hidden] { display: none; }
+  .rga-cancel:hover { background: var(--a-surface2); }
+  .rga-foot { text-align: center; color: var(--a-muted); font-size: 13px; margin: 14px 0 0; }
+  .rga-foot[hidden] { display: none; }
+</style>
+<script>
+window.RG_BOOT = {"homeUrl":"","urlToken":""};
+window.RubenAuth = (function () {
+  'use strict';
+  var HELP_CONTACT = 'Eric';                 // "Forgot your password? Ask Eric to reset it."
+  var USER_MAX = 20, PW_MIN = 4, PW_MAX = 8;
+  var BOOT = window.RG_BOOT || {};
+  var hasServer = typeof google !== 'undefined' && google.script && google.script.run;
+
+  // Signed in for the rest of the browser session: sessionStorage is cleared when the tab/browser closes.
+  // If the browser blocks storage in the Apps Script frame, the sign-in rides along in arcade links instead.
+  var store = null, local = null;
+  try { sessionStorage.setItem('rg_t', '1'); sessionStorage.removeItem('rg_t'); store = sessionStorage; } catch (e) {}
+  try { localStorage.getItem('rg_t'); local = localStorage; } catch (e) {}
+
+  var session = load(), booted = false, listeners = [], heads = [];
+
+  function load() {
+    if (store) {
+      try { var j = JSON.parse(store.getItem('rgSession') || 'null'); if (j && j.token) return j; } catch (e) {}
+      return null;
+    }
+    return BOOT.urlToken ? { token: BOOT.urlToken, name: '', user: '' } : null;
+  }
+  function save() {
+    if (!store) return;
+    try { if (session) store.setItem('rgSession', JSON.stringify(session)); else store.removeItem('rgSession'); } catch (e) {}
+  }
+  function recent() {
+    try { return (JSON.parse(local.getItem('rgRecent') || '[]') || []).filter(function (x) { return typeof x === 'string' && x; }).slice(0, 6); }
+    catch (e) { return []; }
+  }
+  function addRecent(u) {
+    if (!local || !u) return;
+    var r = recent().filter(function (x) { return x.toLowerCase() !== u.toLowerCase(); });
+    r.unshift(u);
+    try { local.setItem('rgRecent', JSON.stringify(r.slice(0, 6))); } catch (e) {}
+  }
+  function pub() { return session ? { name: session.name, user: session.user } : null; }
+  function emit(why) {
+    renderHeads();
+    listeners.slice().forEach(function (cb) { try { cb(pub(), why); } catch (e) { setTimeout(function () { throw e; }); } });
+  }
+  // Every call gets an answer: if the server says nothing for 45 s, the form says so and lets the player retry.
+  // (If the answer does turn up later, it's still used.)
+  var SLOW_MS = 45000;
+  function server(fn, args, ok, fail) {
+    var done = false;
+    var t = setTimeout(function () {
+      if (done) return;
+      if (fail) fail(new Error('The server is taking too long to answer. Please try again in a moment.'));
+    }, SLOW_MS);
+    var r = google.script.run
+      .withSuccessHandler(function (v) { done = true; clearTimeout(t); if (ok) ok(v); })
+      .withFailureHandler(function (e) { if (done) return; done = true; clearTimeout(t); if (fail) fail(e); });
+    // A function the server doesn't have means the deployed version is missing the newest Leaderboard.gs
+    var problem = null;
+    if (typeof r[fn] !== 'function') problem = 'The arcade needs an update (the server has no ' + fn + '). Please tell ' + HELP_CONTACT + '.';
+    else { try { r[fn].apply(r, args); } catch (err) { problem = (err && err.message) || String(err); } }
+    if (problem) { done = true; clearTimeout(t); if (fail) setTimeout(function () { fail(new Error(problem)); }, 0); }
+  }
+  function rawErr(e) { return (e && e.message ? e.message : String(e)).replace(/^(Exception|Error):\s*/, ''); }
+  function isAuthErr(e) { return /^AUTH:/.test(rawErr(e)); }
+  function errText(e) { return rawErr(e).replace(/^AUTH:\s*/, ''); }
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  function onReady(fn) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn); else fn(); }
+
+  var ICON = {
+    head: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="8.3" r="4.3"/><path d="M3.6 21.2c.5-4.6 4-7.6 8.4-7.6s7.9 3 8.4 7.6z"/></svg>',
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
+    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9"/><path d="M16 7l3 3"/><path d="M18.5 4.5l2 2"/></svg>',
+    swap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4L3 8l4 4"/><path d="M3 8h13"/><path d="M17 20l4-4-4-4"/><path d="M21 16H8"/></svg>',
+    out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 16l-4-4 4-4"/><path d="M6 12h10"/></svg>'
+  };
+
+  // ---------------------------------------------------------------- head button + menu
+  function mountHead(parent) {
+    var wrap = el('div', 'rga rga-headwrap');
+    var btn = el('button', 'rga-pill');
+    btn.type = 'button';
+    var label = el('span', 'rga-label');
+    label.appendChild(el('small', '', 'Playing as'));
+    var nm = el('b'); label.appendChild(nm);
+    var face = el('span', 'rga-head'); face.innerHTML = ICON.head;
+    btn.appendChild(label); btn.appendChild(face);
+    btn.setAttribute('aria-haspopup', 'menu'); btn.setAttribute('aria-expanded', 'false');
+    var menu = el('div', 'rga-menu'); menu.hidden = true; menu.setAttribute('role', 'menu');
+    var who = el('div', 'rga-who');                 // only shown when the sign-in name differs
+    var un = el('small'); who.appendChild(un);
+    menu.appendChild(who);
+    [['edit', 'Edit Player Name', editName], ['swap', 'Switch Player', switchPlayer], ['out', 'Sign Out', signOut]].forEach(function (it) {
+      var b = el('button', 'rga-item'); b.type = 'button'; b.setAttribute('role', 'menuitem');
+      b.innerHTML = ICON[it[0]]; b.appendChild(document.createTextNode(it[1]));
+      b.addEventListener('click', function () { close(); it[2](); });
+      menu.appendChild(b);
+    });
+    function close() { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = menu.hidden;
+      closeAllMenus();
+      if (open) { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
+    });
+    // Clicks and keys inside the menu must never reach the game underneath
+    ['pointerdown', 'mousedown', 'touchstart', 'click', 'keydown', 'keyup', 'keypress'].forEach(function (t) {
+      wrap.addEventListener(t, function (e) { e.stopPropagation(); });
+    });
+    wrap.appendChild(btn); wrap.appendChild(menu);
+    parent.appendChild(wrap);
+    var h = { wrap: wrap, btn: btn, menu: menu, nm: nm, un: un, who: who, close: close };
+    heads.push(h);
+    renderHeads();
+    return wrap;
+  }
+  function closeAllMenus() { heads.forEach(function (h) { h.close(); }); }
+  function renderHeads() {
+    heads.forEach(function (h) {
+      h.wrap.hidden = !session;
+      if (!session) { h.close(); return; }
+      h.nm.textContent = session.name || session.user || '…';
+      h.un.textContent = session.user && session.user !== session.name ? 'Signs in as "' + session.user + '"' : '';
+      h.who.hidden = !h.un.textContent;
+      h.btn.title = session.name ? 'Playing as ' + session.name : 'Player menu';
+      h.btn.setAttribute('aria-label', h.btn.title);
+    });
+  }
+  document.addEventListener('click', closeAllMenus);
+
+  // ---------------------------------------------------------------- the "Who's playing?" screen
+  // No passwords: start typing your name, then tap it in the list (or make a new player).
+  var M = null, mode = null, switching = false, roster = null, rosterLoading = false, rosterErr = '', hi = 0, rows = [];
+  function pu(p) { return String(p.u || ''); }          // user name ('' for an older player not yet claimed)
+  function pkey(p) { return p.u ? 'u|' + p.u.toLowerCase() : 'k|' + p.k; }
+  function buildModal() {
+    if (M) return M;
+    var modal = el('div', 'rga rga-modal'); modal.hidden = true;
+    modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true'); modal.setAttribute('aria-labelledby', 'rgaTitle');
+    modal.innerHTML =
+      '<form class="rga-card" novalidate autocomplete="off">' +
+        '<div class="rga-brand"><div class="rga-logo">RG</div><div><div class="rga-title" id="rgaTitle">Ruben Games</div><div class="rga-sub"></div></div></div>' +
+        '<label class="rga-field rga-f-user"><span>Type your name</span><div class="rga-inp"><input name="who" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" maxlength="' + USER_MAX + '" placeholder="Start typing…"></div></label>' +
+        '<div class="rga-list" role="listbox"></div>' +
+        '<label class="rga-field rga-f-name"><span>Player name</span><div class="rga-inp"><input name="playername" autocomplete="off" autocapitalize="words" spellcheck="false" maxlength="24"></div><small></small></label>' +
+        '<div class="rga-err" role="alert"></div>' +
+        '<button type="submit" class="rga-go">Save</button>' +
+        '<button type="button" class="rga-cancel">Cancel</button>' +
+      '</form>';
+    var q = function (s) { return modal.querySelector(s); };
+    M = { modal: modal, form: q('form'), sub: q('.rga-sub'), fUser: q('.rga-f-user'), user: q('input[name=who]'), list: q('.rga-list'),
+          fName: q('.rga-f-name'), name: q('input[name=playername]'), nameHint: q('.rga-f-name small'),
+          err: q('.rga-err'), go: q('.rga-go'), cancel: q('.rga-cancel') };
+    M.cancel.addEventListener('click', closeModal);
+    M.form.addEventListener('submit', function (e) { e.preventDefault(); if (mode === 'rename') submitRename(); else if (rows[hi]) rows[hi].pick(); });
+    M.user.addEventListener('input', function () { hi = 0; M.err.textContent = ''; renderList(); });
+    M.user.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); hi = Math.min(rows.length - 1, hi + 1); paintHi(); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); hi = Math.max(0, hi - 1); paintHi(); }
+    });
+    // Keys typed here belong to the form, never to the game underneath
+    ['keydown', 'keyup', 'keypress'].forEach(function (t) {
+      modal.addEventListener(t, function (e) {
+        e.stopPropagation();
+        if (t === 'keydown' && e.key === 'Escape' && !M.cancel.hidden) closeModal();
+      });
+    });
+    ['pointerdown', 'mousedown', 'touchstart', 'click', 'wheel'].forEach(function (t) {
+      modal.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true });
+    });
+    document.body.appendChild(modal);
+    return M;
+  }
+  function loadRoster() {
+    if (!hasServer) { roster = roster || []; return; }
+    if (rosterLoading) return;
+    rosterLoading = true;
+    rosterErr = '';
+    server('authList', [], function (list) { rosterLoading = false; roster = Array.isArray(list) ? list : []; if (modalOpen() && mode === 'signin') renderList(); },
+      function (e) { rosterLoading = false; roster = null; rosterErr = errText(e) || 'Couldn\'t load the players.'; if (modalOpen() && mode === 'signin') renderList(); });
+  }
+  function cleanName(v) { return String(v || '').replace(/\s+/g, ' ').trim(); }
+  // Up to 10 players: names that start with what you typed first, then names that contain it.
+  // With nothing typed: players who've used this device, then everyone else.
+  function matches(typed) {
+    var all = roster || [], t = typed.toLowerCase(), out = [], seen = {};
+    function add(p) { var k = pkey(p); if (!seen[k] && out.length < 10) { seen[k] = 1; out.push(p); } }
+    if (!t) {
+      recent().forEach(function (u) { var p = all.filter(function (x) { return pu(x).toLowerCase() === String(u).toLowerCase(); })[0]; if (p) add(p); });
+      all.forEach(add);
+      return out;
+    }
+    function hit(p, fn) { return fn(pu(p).toLowerCase()) || fn(String(p.n || '').toLowerCase()); }
+    all.forEach(function (p) { if (hit(p, function (s) { return s.indexOf(t) === 0; })) add(p); });
+    all.forEach(function (p) { if (hit(p, function (s) { return s.indexOf(t) > 0; })) add(p); });
+    return out;
+  }
+  function renderList() {
+    var typed = cleanName(M.user.value);
+    M.list.innerHTML = ''; rows = [];
+    if (!roster && rosterErr) {
+      // The list didn't load: say so and offer a retry — never offer "New player" blind, or we'd make duplicates.
+      M.list.appendChild(el('div', 'rga-note rga-bad', 'Couldn\'t load the list of players. ' + rosterErr));
+      var rb = el('button', 'rga-row rga-retry'); rb.type = 'button';
+      rb.appendChild(el('span', 'rga-face', '↻')); var rt = el('span', 'rga-pick'); rt.appendChild(el('b', '', 'Try again')); rb.appendChild(rt);
+      var rrow = { el: rb, pick: function () { rosterErr = ''; renderList(); } };
+      rb.addEventListener('click', rrow.pick); M.list.appendChild(rb); rows.push(rrow); paintHi(); return;
+    }
+    if (!roster) { M.list.appendChild(el('div', 'rga-note', 'Loading players…')); loadRoster(); return; }
+    matches(typed).forEach(function (p) {
+      var b = el('button', 'rga-row'); b.type = 'button'; b.setAttribute('role', 'option');
+      b.appendChild(el('span', 'rga-face', (p.n || pu(p) || '?').charAt(0).toUpperCase()));
+      var tx = el('span', 'rga-pick'); tx.appendChild(el('b', '', p.n || pu(p)));
+      if (p.u && p.n && p.n.toLowerCase() !== p.u.toLowerCase()) tx.appendChild(el('small', '', p.u));
+      b.appendChild(tx);
+      var row = { el: b, pick: function () { signInAs(p.u || p.k); } };
+      b.addEventListener('click', row.pick);
+      M.list.appendChild(b); rows.push(row);
+    });
+    var tl = typed.toLowerCase();
+    var exact = typed && (roster || []).some(function (p) { return pu(p).toLowerCase() === tl || String(p.n || '').toLowerCase() === tl; });
+    if (typed.length >= 2 && !exact) {
+      var nb = el('button', 'rga-row rga-new'); nb.type = 'button';
+      nb.appendChild(el('span', 'rga-face', '+'));
+      var nt = el('span', 'rga-pick'); nt.appendChild(el('b', '', 'New player: ' + typed)); nt.appendChild(el('small', '', 'First time here? Tap to join'));
+      nb.appendChild(nt);
+      var nrow = { el: nb, pick: function () { createPlayer(typed); } };
+      nb.addEventListener('click', nrow.pick);
+      M.list.appendChild(nb); rows.push(nrow);
+    } else if (typed.length === 1 && !rows.length) M.list.appendChild(el('div', 'rga-note', 'Keep typing…'));
+    if (!rows.length && !typed) M.list.appendChild(el('div', 'rga-note', 'Type your name to join.'));
+    hi = Math.min(hi, Math.max(0, rows.length - 1));
+    paintHi();
+  }
+  function paintHi() { rows.forEach(function (r, i) { r.el.classList.toggle('hi', i === hi); }); }
+  function setBusy(text) { M.list.innerHTML = ''; rows = []; M.list.appendChild(el('div', 'rga-note', text)); M.user.disabled = true; }
+  function done(r) {
+    session = { token: r.token, name: r.name, user: r.user };
+    save(); addRecent(r.user); M.user.value = ''; M.user.disabled = false; closeModal(); emit('signin');
+  }
+  function oops(e) { M.user.disabled = false; renderList(); M.err.textContent = errText(e); }
+  function signInAs(u) { setBusy('Starting…'); server('authSignIn', [u], done, oops); }
+  function createPlayer(u) { setBusy('Making your player…'); roster = null; server('authSignUp', [u], done, oops); }
+
+  function show(m, opts) {
+    buildModal();
+    opts = opts || {};
+    if (opts.switching !== undefined) switching = opts.switching;
+    mode = m;
+    var rename = m === 'rename';
+    M.sub.textContent = rename ? 'Edit player name' : switching ? 'Switch player' : 'Who\'s playing?';
+    M.fUser.style.display = M.list.style.display = rename ? 'none' : '';
+    M.fName.style.display = M.go.style.display = rename ? '' : 'none';
+    M.err.className = 'rga-err'; M.err.textContent = '';
+    M.go.disabled = false; M.go.textContent = 'Save';
+    M.cancel.hidden = !(rename || switching);
+    if (rename) {
+      M.name.value = session ? session.name : '';
+      M.nameHint.textContent = 'This is the name on the leaderboards.';
+    } else {
+      M.user.value = ''; M.user.disabled = false; hi = 0;
+      roster = null; renderList();           // fresh list of players each time
+    }
+    M.modal.hidden = false;
+    closeAllMenus();
+    var f = rename ? M.name : M.user;
+    setTimeout(function () { try { f.focus(); if (rename) f.select(); } catch (e) {} }, 30);
+  }
+  function closeModal() { if (M) { M.modal.hidden = true; } mode = null; switching = false; }
+  function modalOpen() { return !!(M && !M.modal.hidden); }
+
+  function submitRename() {
+    M.err.textContent = '';
+    var nm = M.name.value.replace(/\s+/g, ' ').trim();
+    if (nm.length < 2) { M.err.textContent = 'Names need at least 2 characters.'; return; }
+    if (session && nm === session.name) { closeModal(); return; }
+    M.go.disabled = true; M.go.textContent = 'Saving…';
+    server('lbSetName', [session && session.token, nm], function (r) {
+      session.name = r.name; save(); closeModal(); emit('rename');
+    }, function (e) {
+      if (isAuthErr(e)) { closeModal(); expired(); return; }
+      M.go.disabled = false; M.go.textContent = 'Save'; M.err.textContent = errText(e);
+    });
+  }
+
+  // ---------------------------------------------------------------- menu actions
+  function editName() { if (session) show('rename'); }
+  function changePassword() {}
+  function switchPlayer() { show('signin', { switching: true }); }
+  function signOut() {
+    session = null; save(); emit('signout');
+    show('signin', { switching: false });
+  }
+  function expired() {
+    if (!session && modalOpen()) return;
+    session = null; save(); emit('signout');
+    show('signin', { switching: false });
+    M.err.textContent = 'Please sign in again.';
+  }
+
+  // While the sign-in screen is up, keys aimed at the page underneath (e.g. Space = Start) are swallowed.
+  ['keydown', 'keyup', 'keypress'].forEach(function (t) {
+    window.addEventListener(t, function (e) {
+      if (modalOpen() && !M.modal.contains(e.target)) {
+        e.stopImmediatePropagation(); e.preventDefault();
+        if (t === 'keydown') {
+          var first = [M.user, M.name].filter(function (i) { return i.offsetParent !== null; })[0];
+          try { if (first) first.focus(); } catch (err) {}
+        }
+      } else if (t === 'keydown' && e.key === 'Escape') closeAllMenus();
+    }, true);
+  });
+
+  // No storage available: carry the sign-in along when moving around the arcade.
+  document.addEventListener('click', function (e) {
+    if (store || !session || !BOOT.homeUrl) return;
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    var h = a.getAttribute('href') || '';
+    if (h.indexOf(BOOT.homeUrl) !== 0) return;
+    h = h.replace(/([?&])s=[^&#]*&?/, '$1').replace(/[?&]$/, '');
+    a.setAttribute('href', h + (h.indexOf('?') < 0 ? '?' : '&') + 's=' + encodeURIComponent(session.token));
+  }, true);
+
+  // ---------------------------------------------------------------- start up
+  onReady(function () {
+    if (!hasServer) return;
+    booted = true;
+    if (!session) { show('signin'); emit('boot'); return; }
+    emit('boot');
+    server('authMe', [session.token], function (r) {
+      if (!session) return;
+      var changed = r.name !== session.name || r.user !== session.user;
+      session.name = r.name; session.user = r.user; save();
+      if (changed) emit('rename');
+    }, function (e) { if (isAuthErr(e)) expired(); });
+  });
+
+  return {
+    available: !!hasServer,
+    token: function () { return session ? session.token : null; },
+    user: pub,
+    onUser: function (cb) { listeners.push(cb); if (booted) cb(pub(), 'boot'); },
+    mountHead: mountHead,
+    expired: expired,
+    isAuthError: isAuthErr,
+    signOut: signOut, switchPlayer: switchPlayer, editName: editName, changePassword: changePassword
+  };
+})();
+</script>
+
+<style>
+  .rlb { --lb-accent: #ffb347; --lb-text: #fff4e3; --lb-muted: #d9b48f; --lb-panel: rgba(40,18,6,0.55);
+         --lb-line: rgba(255,230,190,0.12); --lb-hi: rgba(255,179,71,0.16); --lb-hi2: rgba(255,179,71,0.34);
+         --lb-btn: rgba(255,244,227,0.12); --lb-btn-line: rgba(255,230,190,0.4); --lb-save: #ff9a3c; --lb-save-text: #3a1505;
+         --lb-err: #ffb199; color: var(--lb-text); }
+  .rlb-me { display: none; justify-content: center; margin: 0 0 14px; }
+  .rlb-me.on { display: flex; }
+  /* corner: true → the head button sits in the top-right corner of the start / end screen */
+  .rlb-me.rlb-corner { position: fixed; top: 12px; right: 14px; z-index: 12; margin: 0; }
+  .rlb-board { display: none; margin: 18px auto 0; width: min(460px, 100%); }
+  .rlb-board.on { display: block; }
+  .rlb-board h2 { font-weight: 700; color: var(--lb-accent); font-size: 22px; margin: 0 0 8px; letter-spacing: 0.3px; }
+  .rlb-board table { width: 100%; border-collapse: collapse; font-size: 16px; background: var(--lb-panel); border-radius: 12px; overflow: hidden; }
+  .rlb-board th { text-align: left; font-weight: 600; color: var(--lb-muted); font-size: 12.5px; text-transform: uppercase;
+                  letter-spacing: 0.6px; padding: 7px 10px; }
+  .rlb-board td { padding: 6px 10px; border-top: 1px solid var(--lb-line); text-align: left; }
+  .rlb-board .n { text-align: right; white-space: nowrap; }
+  .rlb-board td.rk { width: 2.2em; color: var(--lb-muted); }
+  .rlb-board td.who { max-width: 12em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rlb-board td.day { color: var(--lb-muted); font-size: 14px; white-space: nowrap; }
+  .rlb-board tr.mine td { background: var(--lb-hi); }
+  .rlb-board tr.latest td { background: var(--lb-hi2); }
+  .rlb-board .new { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 6px; background: var(--lb-save);
+                    color: var(--lb-save-text); font-size: 12px; font-weight: 700; vertical-align: 2px; }
+  .rlb-board .note { margin-top: 8px; font-size: 15px; min-height: 1.3em; }
+  .rlb-board .note.err { color: var(--lb-err); }
+  @media (max-width: 420px) { .rlb-board td.day, .rlb-board th.day { display: none; } }
+</style>
+<script>
+window.RubenLB = (function () {
+  'use strict';
+  var LEVEL_NAMES = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+
+  function create(o) {
+    var game = o.game, column = o.column || 'Score', level = o.level || 'easy';
+    var fmt = o.format || function (v) { return String(v); };
+    var meBox = o.meEl, box = o.boardEl;
+    var hasServer = typeof google !== 'undefined' && google.script && google.script.run;
+    var Auth = window.RubenAuth;
+    var runId = null, runPending = false, finalScore = null, runLevel = level, runToken = null, userKey = null;
+    var boards = {}, loading = {}, gen = 0, ready = !Auth;
+
+    meBox.classList.add('rlb', 'rlb-me', 'on'); box.classList.add('rlb', 'rlb-board');
+    if (o.corner) meBox.classList.add('rlb-corner');
+    if (Auth) Auth.mountHead(meBox);
+    function tok() { return Auth ? Auth.token() : null; }
+
+    function server(fn, args, ok, fail) {
+      var r = google.script.run.withSuccessHandler(ok).withFailureHandler(fail || function () {});
+      r[fn].apply(r, args);
+    }
+    function authFail(e) { if (Auth && Auth.isAuthError(e)) { Auth.expired(); return true; } return false; }
+    function errText(e) { return (e && e.message ? e.message : String(e)).replace(/^(Exception|Error):\s*/, '').replace(/^AUTH:\s*/, ''); }
+    function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+
+    function render(note, isErr) {
+      box.classList.add('on');
+      box.innerHTML = '';
+      box.appendChild(el('h2', '', '🏆 Top 10 · ' + LEVEL_NAMES[level]));
+      var b = boards[level];
+      if (b && b.rows.length) {
+        var tbl = el('table'), head = el('tr');
+        head.appendChild(el('th', '', '#')); head.appendChild(el('th', '', 'Player'));
+        head.appendChild(el('th', 'n', column)); head.appendChild(el('th', 'day', 'Date'));
+        tbl.appendChild(head);
+        b.rows.forEach(function (r, i) {
+          var tr = el('tr', r.latest ? 'latest' : r.mine ? 'mine' : '');
+          tr.appendChild(el('td', 'rk', String(i + 1)));
+          var who = el('td', 'who', r.name);
+          if (r.latest) who.appendChild(el('span', 'new', 'NEW'));
+          tr.appendChild(who);
+          tr.appendChild(el('td', 'n', fmt(r.score)));
+          tr.appendChild(el('td', 'day', r.day));
+          tbl.appendChild(tr);
+        });
+        box.appendChild(tbl);
+      } else if (b) {
+        box.appendChild(el('div', 'note', 'No ' + LEVEL_NAMES[level] + ' scores yet. Be the first!'));
+      }
+      var text = note;
+      if (!text && !b) text = 'Loading leaderboard…';
+      // The signed-in player's own best on this difficulty (from the database, so it follows them to any device)
+      if (!text && b && b.best !== null) {
+        text = (b.newBest ? '🎉 New personal best: ' : 'Your personal best: ') + fmt(b.best) + ' · Rank #' + b.rank + ' of ' + b.total;
+      }
+      if (text) box.appendChild(el('div', 'note' + (isErr ? ' err' : ''), text));
+    }
+
+    function fetchBoard(lv) {
+      if (loading[lv]) return;
+      loading[lv] = true;
+      var g = gen;
+      server('lbBoard', [tok(), game, lv], function (b) {
+        loading[lv] = false;
+        if (g !== gen) return;                                   // player changed meanwhile
+        boards[lv] = b;
+        if (lv === level) render();
+      }, function (e) { loading[lv] = false; if (g === gen && lv === level) render('Leaderboard unavailable: ' + errText(e), true); });
+    }
+
+    function submit() {
+      var f = finalScore, id = runId, t = runToken;
+      finalScore = null; runId = null;
+      var prev = boards[runLevel] ? boards[runLevel].best : undefined;
+      server('lbSubmitScore', [t, game, id, f.score, f.outcome], function (d) {
+        var b = d.board;
+        // New personal best: this score is now their best, and it beat (or is their first) earlier best
+        b.newBest = b.best !== null && Math.round(f.score) === b.best && (prev === null || (prev !== undefined && prev !== b.best));
+        boards[b.level] = b;
+        if (d.board.level === level) render();
+      }, function (e) { if (!authFail(e)) render(errText(e), true); });
+    }
+
+    // Load (or reload) the boards whenever the player signs in, switches, renames or signs out.
+    function reload(u, why) {
+      gen++; boards = {}; loading = {}; ready = true;
+      var key = u ? u.user : null;
+      if (why === 'rename' && key === userKey) { fetchBoard(level); render(); return; }
+      userKey = key;
+      render();
+      if (!u) { fetchBoard(level); return; }                    // signed out: the board still shows
+      var g = gen;
+      server('lbInit', [tok(), game, level], function (d) {
+        if (g !== gen) return;
+        boards[d.board.level] = d.board;
+        if (d.board.level === level) render();
+      }, function (e) { if (g === gen && !authFail(e)) render('Leaderboard unavailable: ' + errText(e), true); });
+    }
+    if (hasServer && Auth) Auth.onUser(reload);
+    else if (hasServer) { render(); fetchBoard(level); }
+
+    return {
+      available: !!hasServer,
+      /** Show the board for this difficulty (call whenever the player picks a level). */
+      setLevel: function (lv) {
+        level = lv;
+        if (!hasServer) return;
+        render();
+        if (!boards[lv] && ready) fetchBoard(lv);
+      },
+      /** Call when a game starts. */
+      beginRun: function () {
+        if (!hasServer) return;
+        runId = null; finalScore = null; runLevel = level; runToken = tok();
+        runPending = !!runToken;
+        if (!runToken) return;
+        server('lbStartRun', [runToken, game, runLevel], function (id) {
+          runId = id; runPending = false;
+          if (finalScore) submit();                         // game ended before the ticket arrived
+        }, function () { runPending = false; });
+      },
+      /** Call when a game ends, with the final score. */
+      finishRun: function (score, outcome) {
+        if (!hasServer) return;
+        finalScore = { score: score, outcome: outcome || '' };
+        level = runLevel;
+        render('Saving your score…');
+        if (runId) submit();
+        else if (!runPending) { finalScore = null; render('Your score could not be saved this time.', true); }
+      }
+    };
+  }
+  return { create: create };
+})();
+</script>
+
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="hud">
+  <span class="pill" id="time">2:00</span>
+  <span class="pill" id="ducks">🍗 0</span>
+  <span class="pill" id="best">Best: --</span>
+</div>
+<div id="touch">
+  <div class="tbtn" data-k="left">◀</div>
+  <div class="tbtn" data-k="right">▶</div>
+  <div class="tbtn" data-k="up">▲</div>
+  <div class="tbtn" data-k="down">▼</div>
+</div>
+<div id="overlay">
+  <h1>Duck Dynasty</h1>
+  <p id="msg">Catch as many ducks as you can in <b>2 minutes</b><br>
+    Swerve hard to avoid <b>eagles</b>, they will steal 2 ducks<br>
+    <span id="howto">Steer with your <b>mouse</b> (or the arrow keys)</span></p>
+  <div class="diff" id="diff">
+    <button data-level="easy">Easy</button><button data-level="medium">Medium</button><button data-level="hard">Hard</button>
+  </div>
+  <div class="diff" id="steer">Steer with:
+    <button data-steer="tilt">📱 Tilt</button><button data-steer="finger">☝️ Finger</button><button class="inv" id="inv" title="Reverse tilt up/down">⇅ Invert</button>
+  </div>
+  <p id="lvlNote"></p>
+  <div id="me"></div>
+  <button id="btn">Start</button>
+  <div id="lb"></div>
+  <a id="home" href="./" target="_top">← Back to the arcade</a>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- Tunables (meters and seconds) ----
+  var GAME_SECONDS = 120;
+  var SPEED_START = 14, SPEED_END = 22;      // forward speed ramps up during the flight
+  // Ducks: only one or two in the canyon at a time, each flying its own looping pattern
+  var MAX_DUCKS = 2, DUCK_FWD = [5.5, 8];    // ducks fly away from you, slower than the glider
+  // Eagles fly head-on at you and try to intercept, but react late and turn slower than the glider
+  var EAGLE_GLIDE = 8;                       // eagle's own forward speed (toward you)
+  // Difficulty levels change only the eagles:
+  //   react  seconds of delay before an eagle reacts to your moves
+  //   lat / vert  eagle steering speed (the glider's is 10 and 7)
+  //   accel  how quickly an eagle changes direction
+  //   gain   how aggressively an eagle steers toward you
+  //   lead   seconds ahead an eagle predicts your path (0 = aims where you are)
+  //   every  [min, max] seconds between eagles (gets ~30% shorter by the end of the flight)
+  var LEVELS = {
+    easy:   { name: 'Easy',   react: 0.35, lat: 6.5, vert: 4.5, accel: 16, gain: 2.5, lead: 0,    every: [5, 8],
+              note: 'Eagles are slow to react. Great for learning!' },
+    medium: { name: 'Medium', react: 0.22, lat: 8.3, vert: 5.8, accel: 25, gain: 3.8, lead: 0.15, every: [4.5, 7],
+              note: 'Eagles react faster and turn sharper.' },
+    hard:   { name: 'Hard',   react: 0.18, lat: 8.8, vert: 6.1, accel: 28, gain: 4.2, lead: 0.2,  every: [4, 6.5],
+              note: 'Eagles are quick, fierce, and guess where you\'re going!' }
+  };
+  var LAT_SPEED = 10, LAT_ACCEL = 40;        // left / right steering
+  var VERT_SPEED = 7, VERT_ACCEL = 32;       // up / down steering
+  var STEER_SMOOTH_MOUSE = 8;                // how quickly the glider eases toward the mouse (higher = snappier)
+  var STEER_SMOOTH_KEYS = 8;                 // same for arrow keys / buttons
+  var MOUSE_REACH = 0.22;                    // pointer this far from the glider (fraction of screen) = full speed
+  var MOUSE_DEAD = 10;                       // pixels around the glider where it flies straight
+  var RIM = 13, CEIL = RIM - 2, FLOOR = 0.6; // canyon rim height, highest you can fly, river crash height
+  var CRASH_MARGIN = 0.9;                    // how close the wingtips can get to a wall
+  var BANK = 0.6;                            // sandy riverbank between the water and the foot of the cliffs
+  var SLOPE = 0.1;                           // cliffs lean back 0.1 m for every 1 m of height (steep, not vertical)
+  var EAGLE_STEAL = 2;
+  var VIEW = 95, CAM_D = 5, SEG = 2;
+  var LEVEL_KEY = 'duckDinnerLevel';
+  var HAZE = [172, 206, 232];                 // distant haze: cool blue mist from the waterfalls
+  var ROCK = [[150, 64, 36], [178, 86, 48], [140, 58, 34], [196, 112, 64], [164, 74, 42], [206, 128, 78]];
+  var BANDS = [0, 1.8, 3.9, 6.2, 8.4, 10.7, RIM];
+
+  var cv = document.getElementById('game');
+  var ctx = cv.getContext('2d');
+  var hudTime = document.getElementById('time');
+  var hudDucks = document.getElementById('ducks');
+  var hudBest = document.getElementById('best');
+  var overlay = document.getElementById('overlay');
+  var msg = document.getElementById('msg');
+  var btn = document.getElementById('btn');
+
+  var W = 0, H = 0, F = 1, HY = 0;
+  var state = 'title';   // title | playing | landed | crash | done
+  var P, camX = 0, camY = 6, camZ = -CAM_D;
+  var ducks = [], eagles = [], parts = [], roasts = [], fleers = [];
+  var count = 0, timeLeft = GAME_SECONDS, playT = 0, eagleT = 0, endT = 0, endedAt = 0, shake = 0;
+  var duckT = 0, duckGoal = 1, trail = [];
+  var boom = null, splash = null, crashWhy = '';
+  var keys = { left: false, right: false, up: false, down: false };
+  var level = loadLevel(), L = LEVELS[level];
+  var best = loadBest();
+
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function approach(v, t, step) { return v < t ? Math.min(t, v + step) : Math.max(t, v - step); }
+  function hash(n) { var x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+  function loadBest() { try { var v = parseInt(localStorage.getItem('duckDinnerBest_' + level), 10); return isNaN(v) ? null : v; } catch (e) { return null; } }
+  function saveBest(v) { try { localStorage.setItem('duckDinnerBest_' + level, String(v)); } catch (e) {} }
+  function loadLevel() {
+    try {   // a best score from before difficulty levels existed counts as Easy (the game is unchanged there)
+      var old = localStorage.getItem('duckDinnerBest');
+      if (old !== null && localStorage.getItem('duckDinnerBest_easy') === null) localStorage.setItem('duckDinnerBest_easy', old);
+      var l = localStorage.getItem(LEVEL_KEY); return LEVELS[l] ? l : 'easy';
+    } catch (e) { return 'easy'; }
+  }
+  function mix(rgb, t) {
+    return 'rgb(' + Math.round(rgb[0] + (HAZE[0] - rgb[0]) * t) + ',' + Math.round(rgb[1] + (HAZE[1] - rgb[1]) * t) + ',' +
+           Math.round(rgb[2] + (HAZE[2] - rgb[2]) * t) + ')';
+  }
+  function shadeRGB(c, f) { return [Math.min(255, c[0] * f), Math.min(255, c[1] * f), Math.min(255, c[2] * f)]; }
+
+  // ---- The canyon: a winding centre line and a width that slowly narrows ----
+  function cx(z) {
+    var a = 0.45 + 0.55 * Math.min(1, Math.max(0, z) / 500);
+    return a * (10 * Math.sin(z * 0.011) + 4.5 * Math.sin(z * 0.027 + 1.7) + 2 * Math.sin(z * 0.06 + 0.4));
+  }
+  function hw(z) {
+    return 7.8 - 2.4 * Math.min(1, Math.max(0, z) / 1000) + 1.0 * Math.sin(z * 0.045 + 2) + 3 * Math.max(0, 1 - z / 100);
+  }
+
+  // Distance from the canyon centre line to the rock face, at height y (cliffs lean back as they rise)
+  function wallAt(z, y) { return hw(z) + BANK + SLOPE * y; }
+
+  // ---- Perspective ----
+  function proj(x, y, z) {
+    var dz = z - camZ, s = F / dz;
+    return { x: W / 2 + (x - camX) * s, y: HY + (camY - y) * s, s: s, dz: dz };
+  }
+  function fogT(dz) { return clamp(Math.pow(dz / VIEW, 0.8), 0, 1); }
+
+  function resize() {
+    var dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    F = Math.min(H, W * 1.1) * 0.95;
+    HY = H * 0.6 - F * 1.0 / CAM_D;           // glider sits a bit below the middle of the screen
+    layoutTouch();
+  }
+
+  // ---- Ducks: one or two at a time, each flying a pattern ----
+  //   0 figure-eight   1 loop   2 diagonal swoop   3 up-and-down roller coaster
+  function spawnDuck(z) {
+    var w = hw(z);
+    var A = rand(1.4, Math.min(3.4, w - 2.4)), B = rand(1.1, 2.3);
+    var off = rand(-1, 1) * Math.max(0, w - 2.4 - A);
+    ducks.push({ z: z, off: off, y0: rand(2.2 + B, CEIL - 0.6 - B), A: A, B: B,
+                 w: rand(1.3, 2.1), t: rand(0, 6.283), type: Math.floor(Math.random() * 4),
+                 sg: Math.random() < 0.5 ? -1 : 1, vz: rand(DUCK_FWD[0], DUCK_FWD[1]),
+                 ph: rand(0, 6.283), x: 0, y: 0, dir: 1 });
+    placeDuck(ducks[ducks.length - 1]);
+  }
+  function placeDuck(d) {
+    var s = Math.sin(d.t), c = Math.cos(d.t), ox, oy;
+    if (d.type === 0) { ox = d.A * s; oy = d.B * 0.7 * Math.sin(2 * d.t); }
+    else if (d.type === 1) { ox = d.A * c * d.sg; oy = d.B * s; }
+    else if (d.type === 2) { ox = d.A * s; oy = d.B * s * d.sg; }
+    else { ox = d.A * 0.45 * Math.sin(d.t * 0.5); oy = d.B * 1.1 * s; }
+    var cc = cx(d.z), lim = hw(d.z) - 1.2;
+    var nx = clamp(cc + d.off + ox, cc - lim, cc + lim);
+    if (Math.abs(nx - d.x) > 0.002) d.dir = nx > d.x ? 1 : -1;
+    d.x = nx; d.y = clamp(d.y0 + oy, 1.8, CEIL - 0.2);
+  }
+
+  function newPlane() { return { x: cx(0), y: 5.5, z: 0, vx: 0, vy: 0, bank: 0, invuln: 0 }; }
+
+  // ---- Game flow ----
+  function startGame() {
+    lb.beginRun();
+    P = newPlane();
+    camX = P.x; camY = P.y + 1; camZ = P.z - CAM_D;
+    count = 0; timeLeft = GAME_SECONDS; playT = 0; eagleT = 8;
+    ducks = []; duckT = 0; duckGoal = 1; trail = [];
+    spawnDuck(P.z + 45);
+    eagles = []; parts = []; roasts = []; fleers = []; boom = null; splash = null; shake = 0;
+    keys.left = keys.right = keys.up = keys.down = false;
+    releaseAllTouches();
+    state = 'playing';
+    mouse.active = false; steerFinger = null;
+    tilt.base = null; tilt.aim = null; tilt.hinted = false;
+    if (tiltWanted()) startTilt();          // must run inside the Start tap (iPhone permission prompt)
+    overlay.hidden = true;
+    btn.blur();
+    try { window.focus(); } catch (e) {}
+    updateHud();
+  }
+
+  function finish() {
+    state = 'done';
+    endedAt = performance.now();
+    var isBest = best === null || count > best;
+    if (isBest && count > 0) { best = count; saveBest(count); }
+    var head = crashWhy === 'wall' ? '💥 KABOOM! You flew into the canyon wall.'
+             : crashWhy === 'river' ? '💦 SPLASH! You crashed into the river.'
+             : '🛬 Time\'s up! Your glider lands safely.';
+    msg.innerHTML = head + '<br>Roast ducks for dinner (' + L.name + '): <b>' + count + '</b>' +
+      '';
+    btn.textContent = 'Fly again';
+    overlay.hidden = false;
+    updateHud();
+    lb.finishRun(count, crashWhy || 'landed');
+  }
+
+  function updateHud() {
+    var t = Math.ceil(timeLeft);
+    hudTime.textContent = Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2);
+    hudTime.className = 'pill' + (state === 'playing' && timeLeft <= 10 ? ' low' : '');
+    hudDucks.textContent = '🍗 ' + count;
+    hudBest.textContent = 'Best: ' + (best === null ? '--' : best);
+  }
+  function bump(cls) { hudDucks.classList.remove('pop', 'ouch'); void hudDucks.offsetWidth; hudDucks.classList.add(cls); }
+  function buzz(ms) { if (touchOn && navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
+  function floatText(text, x, y, color) { parts.push({ text: text, x: x, y: y, vx: 0, vy: -70, g: 0, life: 1.1, max: 1.1, c: color }); }
+  function burst(x, y, n, colors, spread, up, size) {
+    for (var i = 0; i < n; i++) {
+      var a = rand(0, 6.283), sp = rand(0.3, 1) * spread;
+      parts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - up, g: up * 2,
+                   life: rand(0.4, 0.9), max: 0.9, c: colors[i % colors.length], r: rand(0.5, 1) * (size || 4) });
+    }
+  }
+
+  function catchDuck(d) {
+    count++;
+    var p = proj(d.x, d.y, d.z);
+    burst(p.x, p.y, 10, ['#ffffff', '#f2e6d6'], 140, 20, 6);          // poof!
+    burst(p.x, p.y, 8, ['#ffb347', '#ff7a1a', '#ffd27a'], 200, 60, 3); // sizzle
+    roasts.push({ x0: p.x, y0: p.y, s0: Math.max(30, p.s * 1.1), t: 0 });
+    buzz(10);
+  }
+
+  function stolen() {
+    var n = Math.min(EAGLE_STEAL, count);
+    count -= n;
+    P.invuln = 1.3; shake = 0.25;
+    var p = proj(P.x, P.y, P.z);
+    fleers.push({ x: p.x, y: p.y - p.s * 0.3, s: p.s, t: 0, n: n, dir: Math.random() < 0.5 ? -1 : 1 });
+    floatText(n ? '-' + n + ' 🦅' : 'Nothing to steal!', p.x, p.y - p.s * 0.9, '#ffb199');
+    bump('ouch'); buzz(60);
+    updateHud();
+  }
+
+  function crash(why) {
+    crashWhy = why;
+    state = 'crash'; endT = 1.9; shake = 0.9;
+    var p = proj(P.x, P.y, P.z);
+    if (why === 'river') {
+      var wp = proj(P.x, 0, P.z);
+      splash = { x: wp.x, y: wp.y, s: wp.s, t: 0 };
+      shake = 0.5; endT = 2.1;
+      for (var d = 0; d < 70; d++) {                       // flying droplets
+        var a = rand(-Math.PI * 0.95, -Math.PI * 0.05), sp = rand(0.6, 1.6) * wp.s * 3.2;
+        parts.push({ x: wp.x + rand(-0.6, 0.6) * wp.s, y: wp.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 1.3,
+                     g: wp.s * 7, life: rand(0.8, 1.5), max: 1.5, c: ['#ffffff', '#d8f1ff', '#9fd3f0', '#bfe6ff'][d % 4], r: rand(2, 6) });
+      }
+      floatText('SPLASH!', wp.x, wp.y - wp.s * 3.6, '#bfe6ff');
+      buzz(220);
+      return;
+    }
+    var blobs = [];
+    for (var i = 0; i < 14; i++) blobs.push({ dx: rand(-1, 1), dy: rand(-0.8, 0.5), r: rand(0.35, 0.8), d: rand(0, 0.25) });
+    boom = { x: p.x, y: p.y, s: p.s, t: 0, blobs: blobs };
+    burst(p.x, p.y, 26, ['#ffd27a', '#ff7a1a', '#ff3d00', '#ffffff'], p.s * 4, p.s * 0.6, 5);
+    burst(p.x, p.y, 10, ['#f4f1ea', '#cc2b2b', '#5a5a5a'], p.s * 3.5, p.s * 1.2, 7);   // bits of glider
+    buzz(250);
+  }
+
+  // ---- Input ----
+  var KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
+                 ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down' };
+  function canKeyStart() { return (state === 'title' || state === 'done') && performance.now() - endedAt > 1200; }
+  // Mouse steering: the glider eases toward the pointer, faster the farther away it is
+  var mouse = { x: 0, y: 0, active: false, inside: true };
+  window.addEventListener('pointermove', function (e) {
+    if (e.pointerType !== 'mouse') return;
+    mouse.x = e.clientX; mouse.y = e.clientY; mouse.inside = true;
+    if (state === 'playing') mouse.active = true;
+  });
+  document.addEventListener('mouseleave', function () { mouse.inside = false; });
+  document.addEventListener('mouseenter', function () { mouse.inside = true; });
+
+  // Phones and tablets: drag a finger anywhere and the glider flies toward it, just like the mouse.
+  // Lift the finger and the glider levels out and flies straight.
+  var steerFinger = null;
+  function fingerAt(e) { mouse.x = e.clientX; mouse.y = e.clientY; mouse.inside = true; mouse.active = true; }
+  cv.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' || state !== 'playing' || steerFinger !== null) return;
+    e.preventDefault();
+    if (tiltOn()) { recenterTilt(); return; }
+    steerFinger = e.pointerId;
+    try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+    fingerAt(e);
+  });
+  cv.addEventListener('pointermove', function (e) {
+    if (e.pointerId !== steerFinger) return;
+    e.preventDefault(); fingerAt(e);
+  });
+  function fingerUp(e) {
+    if (e.pointerId !== steerFinger) return;
+    steerFinger = null; mouse.inside = false;
+  }
+  cv.addEventListener('pointerup', fingerUp);
+  cv.addEventListener('pointercancel', fingerUp);
+  cv.addEventListener('lostpointercapture', fingerUp);
+
+  // ---- Tilt steering (phones/tablets) ----
+  // Tilt left/right to swerve; tip the top of the phone toward you to climb, away to dive (like a yoke).
+  // Whatever angle you hold the phone at when the flight starts is "level"; tap the screen to re-center.
+  // If the browser won't share motion readings, we fall back to finger steering automatically.
+  var TILT_RANGE = 18, TILT_RANGE_V = 16, TILT_DEAD = 2.5, TILT_WAIT = 1.3;
+  var steerMode = 'tilt', invertTilt = false;
+  try { steerMode = localStorage.getItem('duckSteer') === 'finger' ? 'finger' : 'tilt'; invertTilt = localStorage.getItem('duckInvert') === '1'; } catch (e) {}
+  if (typeof DeviceOrientationEvent === 'undefined') steerMode = 'finger';
+  var tilt = { lat: 0, pitch: 0, base: null, got: false, listening: false, since: 0, failed: false, aim: null, hinted: false };
+  function tiltWanted() { return touchOn && steerMode === 'tilt' && !tilt.failed && typeof DeviceOrientationEvent !== 'undefined'; }
+  function tiltOn() { return tiltWanted(); }
+  function screenAngle() {
+    var a = screen.orientation && typeof screen.orientation.angle === 'number' ? screen.orientation.angle : (window.orientation || 0);
+    return ((a % 360) + 360) % 360;
+  }
+  function angDiff(a, b) { var d = a - b; while (d > 180) d -= 360; while (d < -180) d += 360; return d; }
+  function onOrient(e) {
+    if (e.beta == null || e.gamma == null) return;
+    var a = screenAngle(), b = e.beta, g = e.gamma, lat, pit;
+    if (a === 90) { lat = b; pit = -g; }
+    else if (a === 270) { lat = -b; pit = g; }
+    else if (a === 180) { lat = -g; pit = -b; }
+    else { lat = g; pit = b; }
+    tilt.lat = lat; tilt.pitch = pit;
+    if (!tilt.got) { tilt.got = true; updateHowto(); }
+    if (!tilt.base && state === 'playing') tilt.base = { lat: lat, pitch: pit };
+  }
+  function listenTilt() {
+    if (tilt.listening) return;
+    tilt.listening = true; tilt.since = state === 'playing' ? playT : 0;
+    window.addEventListener('deviceorientation', onOrient);
+  }
+  function startTilt() {
+    if (tilt.listening) return;
+    var DOE = window.DeviceOrientationEvent;
+    if (DOE && typeof DOE.requestPermission === 'function') {          // iPhone / iPad
+      try {
+        DOE.requestPermission().then(function (r) {
+          if (r === 'granted') { tilt.listening = false; listenTilt(); } else tiltFail('Tilt permission was declined');
+        }, function () { tiltFail(); });
+      } catch (err) { tiltFail(); }
+      tilt.listening = 'asking';
+    } else listenTilt();
+  }
+  function tiltFail(why) {
+    if (tilt.failed) return;
+    tilt.failed = true;
+    if (state === 'playing') {
+      var gp = proj(P.x, P.y, P.z);
+      floatText((why || 'No tilt here') + ': drag your finger', W / 2, H * 0.3, '#ffe0b2');
+      parts[parts.length - 1].vy = -25; parts[parts.length - 1].life = parts[parts.length - 1].max = 3;
+    }
+    updateHowto(); updateSteerBtns();
+  }
+  function recenterTilt() {
+    if (!tilt.got) return;
+    tilt.base = { lat: tilt.lat, pitch: tilt.pitch };
+    var gp = proj(P.x, P.y, P.z);
+    floatText('Re-centered', gp.x, gp.y - 50, '#fff4e3');
+  }
+  function updateHowto() {
+    var how = document.getElementById('howto');
+    if (!how || !touchOn) return;
+    how.innerHTML = tiltWanted()
+      ? '<b>Tilt</b> your phone to steer (tip it toward you to climb). Tap to re-center'
+      : 'Drag your <b>finger</b>: the glider flies toward it';
+  }
+  var steerBtns = document.querySelectorAll('#steer button[data-steer]'), invBtn = document.getElementById('inv');
+  function updateSteerBtns() {
+    var m = tiltWanted() ? 'tilt' : 'finger';
+    for (var i = 0; i < steerBtns.length; i++) steerBtns[i].className = steerBtns[i].getAttribute('data-steer') === m ? 'on' : '';
+    invBtn.className = 'inv' + (invertTilt ? ' on' : '');
+    invBtn.style.display = m === 'tilt' ? '' : 'none';
+  }
+  for (var si = 0; si < steerBtns.length; si++) {
+    steerBtns[si].addEventListener('click', function () {
+      steerMode = this.getAttribute('data-steer');
+      if (steerMode === 'tilt') { tilt.failed = false; if (tilt.listening === 'asking') tilt.listening = false; startTilt(); }
+      try { localStorage.setItem('duckSteer', steerMode); } catch (e) {}
+      updateSteerBtns(); updateHowto();
+    });
+  }
+  invBtn.addEventListener('click', function () {
+    invertTilt = !invertTilt;
+    try { localStorage.setItem('duckInvert', invertTilt ? '1' : '0'); } catch (e) {}
+    updateSteerBtns();
+  });
+
+  function typing(e) { var tg = e.target && e.target.tagName; return tg === 'INPUT' || tg === 'TEXTAREA'; }
+  window.addEventListener('keydown', function (e) {
+    if (typing(e)) return;
+    var k = KEYMAP[e.code];
+    if (!k) {
+      if ((e.code === 'Space' || e.key === ' ' || e.key === 'Enter') && canKeyStart()) { e.preventDefault(); startGame(); }
+      return;
+    }
+    e.preventDefault(); keys[k] = true; mouse.active = false;
+  });
+  window.addEventListener('keyup', function (e) { if (typing(e)) return; var k = KEYMAP[e.code]; if (!k) return; e.preventDefault(); keys[k] = false; });
+  window.addEventListener('blur', function () { keys.left = keys.right = keys.up = keys.down = false; releaseAllTouches(); });
+  btn.addEventListener('click', startGame);
+  window.addEventListener('resize', resize);
+
+  // Touch controls. Each finger is tracked on its own, so the left thumb can hold ◀ / ▶
+  // while the right thumb holds ▲ / ▼. Sliding a thumb onto the other button switches over.
+  var touchBox = document.getElementById('touch');
+  var tbtns = touchBox.querySelectorAll('.tbtn');
+  var touchOn = false, fingers = {}, held = { left: 0, right: 0, up: 0, down: 0 }, centers = [];
+  function showTouch() {
+    if (touchOn) return;
+    touchOn = true;          // (the old ◀ ▶ ▲ ▼ button layer stays hidden; you steer by tilt or finger now)
+    document.body.classList.add('touchdev');
+    updateHowto(); updateSteerBtns();
+    resize();
+  }
+  function layoutTouch() {
+    if (!touchOn) return;
+    var B = Math.round(clamp(Math.min(W, H) * 0.22, 76, 116)), gap = 12, pad = 14;
+    var pos = {
+      left:  { left: pad, bottom: pad + (B + gap) / 2 },
+      right: { left: pad + B + gap, bottom: pad + (B + gap) / 2 },
+      up:    { right: pad, bottom: pad + B + gap },
+      down:  { right: pad, bottom: pad }
+    };
+    for (var i = 0; i < tbtns.length; i++) {
+      var el = tbtns[i], p = pos[el.getAttribute('data-k')];
+      el.style.width = el.style.height = B + 'px';
+      el.style.fontSize = Math.round(B * 0.42) + 'px';
+      el.style.left = p.left !== undefined ? 'calc(' + p.left + 'px + env(safe-area-inset-left))' : 'auto';
+      el.style.right = p.right !== undefined ? 'calc(' + p.right + 'px + env(safe-area-inset-right))' : 'auto';
+      el.style.bottom = 'calc(' + p.bottom + 'px + env(safe-area-inset-bottom))';
+    }
+    measureButtons();
+  }
+  function measureButtons() {
+    centers = [];
+    for (var i = 0; i < tbtns.length; i++) {
+      var r = tbtns[i].getBoundingClientRect();
+      centers.push({ k: tbtns[i].getAttribute('data-k'), x: r.left + r.width / 2, y: r.top + r.height / 2, r: r.width });
+    }
+  }
+  function zoneAt(x, y) {   // nearest button, as long as the thumb is reasonably close to it
+    var bestC = null, bd = 1e9;
+    for (var i = 0; i < centers.length; i++) {
+      var d = Math.hypot(x - centers[i].x, y - centers[i].y);
+      if (d < bd) { bd = d; bestC = centers[i]; }
+    }
+    return bestC && bd < bestC.r * 1.3 ? bestC.k : null;
+  }
+  function paintButtons() {
+    for (var i = 0; i < tbtns.length; i++) tbtns[i].className = 'tbtn' + (held[tbtns[i].getAttribute('data-k')] > 0 ? ' down' : '');
+  }
+  function setHeld(k, delta) {
+    if (!k) return;
+    held[k] = Math.max(0, held[k] + delta);
+    keys[k] = held[k] > 0;
+    paintButtons();
+  }
+  touchBox.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    measureButtons();
+    var k = zoneAt(e.clientX, e.clientY);
+    if (!k) return;
+    try { touchBox.setPointerCapture(e.pointerId); } catch (err) {}
+    fingers[e.pointerId] = k; setHeld(k, 1); buzz(8);
+  });
+  touchBox.addEventListener('pointermove', function (e) {
+    if (!(e.pointerId in fingers)) return;
+    var old = fingers[e.pointerId], k = zoneAt(e.clientX, e.clientY);
+    if (k !== old) { setHeld(old, -1); fingers[e.pointerId] = k; setHeld(k, 1); }
+  });
+  function lift(e) {
+    if (!(e.pointerId in fingers)) return;
+    var k = fingers[e.pointerId]; delete fingers[e.pointerId]; setHeld(k, -1);
+  }
+  touchBox.addEventListener('pointerup', lift);
+  touchBox.addEventListener('pointercancel', lift);
+  touchBox.addEventListener('lostpointercapture', lift);
+  touchBox.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  function releaseAllTouches() { fingers = {}; held.left = held.right = held.up = held.down = 0; paintButtons(); }
+  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) showTouch();
+  window.addEventListener('pointerdown', function (e) { if (e.pointerType === 'touch') showTouch(); }, true);
+
+  // ---- Simulation ----
+  function followCamera(dt) {
+    camZ = P.z - CAM_D;
+    camX += (P.x - camX) * Math.min(1, dt * 9);
+    camY += (P.y + 1.0 - camY) * Math.min(1, dt * 9);
+  }
+
+  function autopilot(dt, speed) {
+    P.z += speed * dt;
+    var tx = cx(P.z + 10);
+    P.vx = approach(P.vx, clamp((tx - P.x) * 2, -LAT_SPEED, LAT_SPEED), LAT_ACCEL * dt);
+    P.x += P.vx * dt;
+    P.y += (5.5 - P.y) * Math.min(1, dt * 2);
+    P.bank += (clamp(P.vx / LAT_SPEED, -1, 1) * 0.55 - P.bank) * Math.min(1, dt * 8);
+    followCamera(dt);
+  }
+
+  function update(dt) {
+    var i, o;
+    shake = Math.max(0, shake - dt);
+    for (i = parts.length - 1; i >= 0; i--) {
+      o = parts[i]; o.life -= dt;
+      if (o.life <= 0) { parts.splice(i, 1); continue; }
+      o.vy += (o.g || 0) * dt; o.x += o.vx * dt; o.y += o.vy * dt;
+      if (o.streak) { o.vx *= 1 + dt * 2.5; o.vy *= 1 + dt * 2.5; }
+    }
+    for (i = roasts.length - 1; i >= 0; i--) {
+      roasts[i].t += dt;
+      if (roasts[i].t >= 0.85) { roasts.splice(i, 1); bump('pop'); updateHud(); }
+    }
+    for (i = fleers.length - 1; i >= 0; i--) { fleers[i].t += dt; if (fleers[i].t > 1.6) fleers.splice(i, 1); }
+    if (boom) boom.t += dt;
+    if (splash) splash.t += dt;
+
+    if (state === 'title') {
+      autopilot(dt, 11);
+      for (i = ducks.length - 1; i >= 0; i--) {
+        o = ducks[i]; o.z += o.vz * dt; o.t += dt * o.w; o.ph += dt * 11; placeDuck(o);
+        if (o.z < camZ + 0.5) { ducks.splice(i, 1); spawnDuck(P.z + rand(55, 75)); }
+      }
+      return;
+    }
+    if (state === 'crash') { endT -= dt; if (endT <= 0) finish(); return; }
+    if (state === 'landed') { autopilot(dt, 16); endT -= dt; if (endT <= 0) finish(); return; }
+    if (state !== 'playing') return;
+
+    playT += dt; timeLeft -= dt;
+    if (timeLeft <= 0) { timeLeft = 0; crashWhy = ''; state = 'landed'; endT = 1.4; updateHud(); return; }
+    var prog = playT / GAME_SECONDS;
+    var speed = SPEED_START + (SPEED_END - SPEED_START) * prog;
+    P.z += speed * dt;
+
+    var ix = (keys.right ? 1 : 0) - (keys.left ? 1 : 0), iy = (keys.up ? 1 : 0) - (keys.down ? 1 : 0);
+    var tvx, tvy, rate;
+    if (tiltOn() && !tilt.got && (tilt.listening === true ? playT - tilt.since > TILT_WAIT : playT > 10)) tiltFail();
+    if (tiltOn() && !ix && !iy) {
+      var tx = 0, ty = 0;
+      if (tilt.base) {
+        var dl = angDiff(tilt.lat, tilt.base.lat), dp = angDiff(tilt.pitch, tilt.base.pitch);
+        if (invertTilt) dp = -dp;
+        tx = Math.abs(dl) < TILT_DEAD ? 0 : (dl - Math.sign(dl) * TILT_DEAD) / TILT_RANGE;
+        ty = Math.abs(dp) < TILT_DEAD ? 0 : (dp - Math.sign(dp) * TILT_DEAD) / TILT_RANGE_V;
+        tx = clamp(tx, -1, 1); ty = clamp(ty, -1, 1);
+        tilt.aim = { x: tx, y: ty };
+        if (!tilt.hinted) { tilt.hinted = true; var hp = proj(P.x, P.y, P.z); floatText('Tilt to steer · tap to re-center', W / 2, H * 0.3, '#fff4e3'); parts[parts.length - 1].vy = -20; parts[parts.length - 1].life = parts[parts.length - 1].max = 2.2; }
+      }
+      tvx = tx * LAT_SPEED; tvy = ty * VERT_SPEED; rate = STEER_SMOOTH_MOUSE;
+    } else if (mouse.active && !ix && !iy) {
+      var mp = proj(P.x, P.y, P.z);
+      var mdx = mouse.x - mp.x, mdy = mp.y - mouse.y;
+      var rx = Math.max(120, W * MOUSE_REACH), ry = Math.max(100, H * MOUSE_REACH);
+      var ax = Math.abs(mdx) < MOUSE_DEAD ? 0 : (mdx - Math.sign(mdx) * MOUSE_DEAD) / rx;
+      var ay = Math.abs(mdy) < MOUSE_DEAD ? 0 : (mdy - Math.sign(mdy) * MOUSE_DEAD) / ry;
+      if (!mouse.inside) ax = ay = 0;
+      tvx = clamp(ax, -1, 1) * LAT_SPEED; tvy = clamp(ay, -1, 1) * VERT_SPEED; rate = STEER_SMOOTH_MOUSE;
+    } else {
+      tvx = ix * LAT_SPEED; tvy = iy * VERT_SPEED; rate = STEER_SMOOTH_KEYS;
+    }
+    // Ease toward the target speed (smooth, no sudden jolts)
+    var ease = 1 - Math.exp(-rate * dt);
+    P.vx += (tvx - P.vx) * ease;
+    P.vy += (tvy - P.vy) * ease;
+    P.x += P.vx * dt; P.y += P.vy * dt;
+    if (P.y > CEIL) { P.y = CEIL; if (P.vy > 0) P.vy = 0; }
+    P.bank += (clamp(P.vx / LAT_SPEED, -1, 1) * 0.55 - P.bank) * Math.min(1, dt * 8);
+    P.invuln = Math.max(0, P.invuln - dt);
+    followCamera(dt);
+
+    // Crashes
+    var c = cx(P.z), w = hw(P.z);
+    var wl = wallAt(P.z, P.y) - CRASH_MARGIN;
+    if (P.x < c - wl || P.x > c + wl) { crash('wall'); return; }
+    if (P.y < FLOOR) { crash('river'); return; }
+
+    // Ducks: keep one or two in the canyon ahead
+    duckT -= dt;
+    if (duckT <= 0 && ducks.length < duckGoal) {
+      var far = 0;
+      for (i = 0; i < ducks.length; i++) far = Math.max(far, ducks[i].z);
+      var nz = Math.max(P.z + rand(70, 82), far + 18);
+      if (nz < P.z + VIEW - 4) {
+        spawnDuck(nz);
+        duckT = rand(0.8, 1.8);
+        duckGoal = Math.random() < 0.45 ? 2 : 1;
+      } else duckT = 0.3;
+    }
+    for (i = ducks.length - 1; i >= 0; i--) {
+      o = ducks[i];
+      o.z += o.vz * dt; o.t += dt * o.w; o.ph += dt * 11;
+      placeDuck(o);
+      if (o.z < camZ + 0.5) { ducks.splice(i, 1); continue; }
+      if (Math.abs(o.z - P.z) < 1.3 && Math.abs(o.x - P.x) < 1.5 && Math.abs(o.y - P.y) < 1.15) {
+        ducks.splice(i, 1); catchDuck(o);
+      }
+    }
+
+    // Eagles fly head-on at the glider. They steer toward where you were a moment ago
+    // (a slower reaction) and can't turn as fast as you, so a hard swerve shakes them.
+    trail.push({ t: playT, x: P.x - c, y: P.y, vx: P.vx, vy: P.vy });
+    while (trail.length > 2 && trail[1].t <= playT - L.react) trail.shift();
+    var seen = trail[0];
+    eagleT -= dt;
+    if (eagleT <= 0 && timeLeft > 3) {
+      var ez = P.z + 78, ec = cx(ez), ew = hw(ez) - 1.6;
+      eagles.push({ x: clamp(ec + (P.x - c), ec - ew, ec + ew), y: clamp(P.y + rand(-1, 1), 2, CEIL - 0.3), z: ez,
+                    vx: 0, vy: 0, bank: 0, ph: rand(0, 6), flapT: rand(0.5, 1.5), flapping: 0, screech: false });
+      eagleT = rand(L.every[0], L.every[1]) * (1 - 0.3 * prog);
+    }
+    for (i = eagles.length - 1; i >= 0; i--) {
+      o = eagles[i];
+      var oldZ = o.z;
+      o.z -= EAGLE_GLIDE * dt;
+      o.x += cx(o.z) - cx(oldZ);                       // follow the canyon's bends
+      var dz = o.z - P.z;
+      if (dz > 0.5) {
+        var tx = cx(o.z) + seen.x + seen.vx * L.lead, ty = clamp(seen.y + seen.vy * L.lead, 1.6, CEIL);
+        o.vx = approach(o.vx, clamp((tx - o.x) * L.gain, -L.lat, L.lat), L.accel * dt);
+        o.vy = approach(o.vy, clamp((ty - o.y) * L.gain, -L.vert, L.vert), L.accel * dt);
+      }
+      o.x += o.vx * dt; o.y += o.vy * dt;
+      var ec2 = cx(o.z), ew2 = hw(o.z) - 1.3;
+      o.x = clamp(o.x, ec2 - ew2, ec2 + ew2); o.y = clamp(o.y, 1.4, CEIL + 0.5);
+      o.bank += (-o.vx / L.lat * 0.45 - o.bank) * Math.min(1, dt * 6);
+      // Mostly gliding, with an occasional few wing beats
+      if (o.flapping > 0) { o.flapping -= dt; o.ph += dt * 11; }
+      else { o.flapT -= dt; if (o.flapT <= 0) { o.flapping = 0.85; o.flapT = rand(1.8, 3.5); } }
+      if (!o.screech && dz < 45) {
+        o.screech = true;
+        var sp = proj(o.x, o.y, o.z);
+        floatText('SCREEE!', sp.x, sp.y - sp.s * 1.2, '#ffe0b2');
+      }
+      if (o.z < camZ - 1) { eagles.splice(i, 1); continue; }
+      if (P.invuln <= 0 && Math.abs(dz) < 1.4 && Math.abs(o.x - P.x) < 1.5 && Math.abs(o.y - P.y) < 1.1) {
+        eagles.splice(i, 1); stolen();
+      }
+    }
+
+    // Wind streaks for a sense of speed
+    if (Math.random() < dt * speed * 1.2) {
+      var a = rand(0, 6.283), r0 = rand(0.15, 0.4) * Math.min(W, H);
+      parts.push({ streak: true, x: W / 2 + Math.cos(a) * r0, y: HY + Math.sin(a) * r0 * 0.7,
+                   vx: Math.cos(a) * 260, vy: Math.sin(a) * 180, g: 0, life: 0.6, max: 0.6 });
+    }
+    if (Math.floor(playT * 10) !== Math.floor((playT - dt) * 10)) updateHud();
+  }
+
+  // ---- Drawing helpers ----
+  function poly(pts) {
+    ctx.beginPath(); ctx.moveTo(pts[0], pts[1]);
+    for (var i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]);
+    ctx.closePath(); ctx.fill();
+  }
+  function ell(g, x, y, rx, ry, rot) { g.beginPath(); g.ellipse(x, y, Math.max(0.01, rx), Math.max(0.01, ry), rot || 0, 0, 6.283); }
+
+  function drawSky() {
+    var g = ctx.createLinearGradient(0, HY - H * 0.9, 0, HY);
+    g.addColorStop(0, '#5b8fd1'); g.addColorStop(0.55, '#a9c4e6'); g.addColorStop(1, 'rgb(' + HAZE.join(',') + ')');
+    ctx.fillStyle = g; ctx.fillRect(-W, -H, W * 3, HY + H + 1);
+    ctx.fillStyle = 'rgb(' + HAZE.join(',') + ')'; ctx.fillRect(-W, HY, W * 3, H * 2);
+    // Low autumn sun
+    var sx = W * 0.62, sy = HY - H * 0.32, sr = Math.min(W, H) * 0.06;
+    var sg = ctx.createRadialGradient(sx, sy, sr * 0.3, sx, sy, sr * 5);
+    sg.addColorStop(0, 'rgba(255,236,190,0.75)'); sg.addColorStop(1, 'rgba(255,236,190,0)');
+    ctx.fillStyle = sg; ctx.fillRect(sx - sr * 5, sy - sr * 5, sr * 10, sr * 10);
+    ctx.fillStyle = '#fff3d0'; ctx.beginPath(); ctx.arc(sx, sy, sr, 0, 6.283); ctx.fill();
+  }
+
+  // Smooth random noise for big buttresses and an uneven rim
+  function vnoise(x, seed) {
+    var i = Math.floor(x), f = x - i; f = f * f * (3 - 2 * f);
+    return hash(i * 17.3 + seed) * (1 - f) + hash((i + 1) * 17.3 + seed) * f;
+  }
+  // How far the rock is set back from the smooth cliff line (never sticks out past it, so crashes stay fair)
+  function rough(kk, j, side) {
+    if (j === 0) return 0.15 * hash(kk * 13 + side * 7);
+    return 0.65 * vnoise(kk / 3.5, j * 9.1 + side * 50) + 0.35 * hash(kk * 31 + j * 7 + side * 101);
+  }
+  function rimH(kk, side) { return RIM - 0.4 + 1.6 * vnoise(kk / 2.5, side * 77 + 3) + 0.3 * hash(kk * 5 + side); }
+  // Cross-section of one cliff at slice boundary kk: a jagged, slightly leaning profile
+  var PA = { x: [], h: [] }, PB = { x: [], h: [] };
+  function profile(kk, z, side, out) {
+    var c = cx(z), nb = BANDS.length - 1;
+    for (var j = 0; j <= nb; j++) {
+      var h = j === nb ? rimH(kk, side) : j === 0 ? 0 : BANDS[j] + (hash(kk * 3 + j * 11 + side * 5) - 0.5) * 0.6;
+      out.h[j] = h;
+      out.x[j] = c + side * (hw(z) + BANK + SLOPE * h + rough(kk, j, side));
+    }
+  }
+
+  var BUSH = [[88, 112, 58], [104, 128, 64], [74, 96, 50]];
+  var JUNIPER = [[46, 74, 46], [58, 88, 52], [38, 64, 40]];
+  var COTTON = [[226, 172, 58], [206, 136, 42], [178, 160, 64], [238, 196, 88]];
+  function blob(x, y, rx, ry, rgb, ft) { ctx.fillStyle = mix(rgb, ft); ell(ctx, x, y, rx, ry); ctx.fill(); }
+  function drawBush(x, y, s, ft, sd) {
+    for (var i = 0; i < 3; i++) blob(x + (i - 1) * 0.32 * s, y - (0.22 + (i % 2) * 0.12) * s, (0.3 + 0.1 * hash(sd + i)) * s, 0.24 * s, BUSH[i], ft);
+  }
+  function drawJuniper(x, y, s, ft, hgt, sd) {
+    ctx.fillStyle = mix([84, 60, 40], ft);
+    ctx.fillRect(x - 0.08 * s, y - hgt * 0.45 * s, 0.16 * s, hgt * 0.45 * s);
+    for (var i = 0; i < 4; i++) {
+      var f = i / 3;
+      blob(x + (hash(sd + i) - 0.5) * 0.5 * s, y - hgt * (0.4 + 0.5 * f) * s, (0.75 - 0.35 * f) * s * (0.8 + 0.4 * hash(sd * 3 + i)),
+           (0.55 - 0.2 * f) * s, JUNIPER[i % 3], ft);
+    }
+  }
+  function drawCottonwood(x, y, s, ft, hgt, sd) {
+    ctx.fillStyle = mix([110, 96, 84], ft);
+    poly([x - 0.16 * s, y, x + 0.16 * s, y, x + 0.06 * s, y - hgt * 0.7 * s, x - 0.06 * s, y - hgt * 0.7 * s]);
+    for (var i = 0; i < 5; i++) {
+      var a = i / 5 * 6.283 + sd;
+      blob(x + Math.cos(a) * 0.45 * s, y - hgt * 0.78 * s + Math.sin(a) * 0.35 * s, (0.5 + 0.2 * hash(sd + i)) * s, 0.42 * s, COTTON[i % 4], ft);
+    }
+    blob(x, y - hgt * 0.85 * s, 0.55 * s, 0.45 * s, COTTON[3], ft);
+  }
+
+  function drawCanyon(sprites, t) {
+    var kFar = Math.floor((camZ + VIEW) / SEG), kNear = Math.floor((camZ + 0.5) / SEG), si = 0;
+    var cxW = W / 2, nb = BANDS.length - 1;
+    for (var k = kFar; k >= kNear; k--) {
+      var za = Math.max(k * SEG, camZ + 0.5), zb = (k + 1) * SEG;
+      if (zb > za + 0.001) {
+        var ca = cx(za), wa = hw(za), cb = cx(zb), wb = hw(zb);
+        var sa = F / (za - camZ), sb = F / (zb - camZ), ft = fogT(za - camZ);
+        var XA = function (x) { return cxW + (x - camX) * sa; }, XB = function (x) { return cxW + (x - camX) * sb; };
+        var YA = function (y) { return HY + (camY - y) * sa; }, YB = function (y) { return HY + (camY - y) * sb; };
+
+        // River and sandy banks
+        ctx.fillStyle = mix(k % 2 ? [56, 122, 140] : [50, 114, 132], ft);
+        poly([XA(ca - wa), YA(0), XA(ca + wa), YA(0), XB(cb + wb), YB(0), XB(cb - wb), YB(0)]);
+        ctx.fillStyle = mix(k % 2 ? [206, 168, 124] : [198, 160, 116], ft);
+        poly([XA(ca - wa - BANK - 0.4), YA(0), XA(ca - wa + 0.25), YA(0), XB(cb - wb + 0.25), YB(0), XB(cb - wb - BANK - 0.4), YB(0)]);
+        poly([XA(ca + wa - 0.25), YA(0), XA(ca + wa + BANK + 0.4), YA(0), XB(cb + wb + BANK + 0.4), YB(0), XB(cb + wb - 0.25), YB(0)]);
+        if (k % 3 === 0) {
+          ctx.fillStyle = 'rgba(220,245,255,' + (0.45 * (1 - ft)) + ')';
+          var rx = ca + Math.sin(k * 1.7 + t * 1.5) * (wa - 2.5);
+          poly([XA(rx - 1.2), YA(0), XA(rx + 1.2), YA(0), XB(rx + 1.0), YB(0), XB(rx - 1.0), YB(0)]);
+        }
+
+        for (var side = -1; side <= 1; side += 2) {
+          profile(k, za, side, PA); profile(k + 1, zb, side, PB);
+          var light = side < 0 ? 1.0 : 0.72;      // sun lights the left cliff; the right one is in shade
+          for (var j = 0; j < nb; j++) {
+            // Faces that step back (ledges) catch more light; every facet varies a little
+            var dh = Math.max(0.3, PA.h[j + 1] - PA.h[j]);
+            var step = ((PA.x[j + 1] - PA.x[j]) * side - SLOPE * dh) / dh;
+            var f = light * (0.88 + 0.16 * hash(k * 13 + j * 5 + side)) * (1 + clamp(step * 1.3, -0.12, 0.32));
+            ctx.fillStyle = mix(shadeRGB(ROCK[j], f), ft);
+            poly([XA(PA.x[j]), YA(PA.h[j]), XA(PA.x[j + 1]), YA(PA.h[j + 1]), XB(PB.x[j + 1]), YB(PB.h[j + 1]), XB(PB.x[j]), YB(PB.h[j])]);
+          }
+          // Pale weathered cap along the jagged rim
+          var tA = PA.h[nb], tB = PB.h[nb];
+          ctx.fillStyle = mix(shadeRGB([232, 176, 124], light), ft);
+          poly([XA(PA.x[nb] - side * 0.04), YA(tA - 0.45), XA(PA.x[nb]), YA(tA), XB(PB.x[nb]), YB(tB), XB(PB.x[nb] - side * 0.04), YB(tB - 0.45)]);
+
+          // Waterfalls pouring down this cliff
+          var wet = false;
+          for (var fi = 0; fi < FALLS.length; fi++) {
+            var fl = FALLS[fi];
+            if (fl.z0 > zb) break;
+            if (fl.side !== side || fl.z1 < za) continue;
+            var z0 = Math.max(za, fl.z0), z1 = Math.min(zb, fl.z1);
+            if (z1 > z0) drawFallSlice(side, z0, z1, za, zb, ft, t);
+            if (zb >= fl.z0 - 1 && zb <= fl.z1 + 1) wet = true;
+          }
+
+          // Plants at this slice's far edge (each slice boundary gets decorated once)
+          var kk = k + 1, hz = wet ? 0 : hash(kk * 7.7 + side * 3.3);
+          if (wet) { /* keep the waterfall clear of plants */ }
+          else if (hz > 0.55) {                                    // juniper on the rim
+            var rp = proj(PB.x[nb] + side * rand0(kk, side) * 1.6, tB - 0.1, zb);
+            drawJuniper(rp.x, rp.y, rp.s, ft, 1.8 + 1.8 * hash(kk * 3 + side), kk + side);
+          } else if (hz > 0.3) {
+            var bp = proj(PB.x[nb] + side * 0.3, tB - 0.05, zb);
+            drawBush(bp.x, bp.y, bp.s * 0.9, ft, kk);
+          }
+          for (var jj = 1; jj < nb - 1; jj++) {                // bushes clinging to ledges
+            if (!wet && hash(kk * 5.3 + jj * 1.9 + side * 0.7) > 0.86) {
+              var lp = proj(PB.x[jj] - side * 0.05, PB.h[jj], zb);
+              drawBush(lp.x, lp.y, lp.s * 0.75, ft, kk * 3 + jj);
+            }
+          }
+          if (!wet && hash(kk * 2.9 + side * 8.1) > 0.83) {    // golden cottonwoods on the riverbank
+            var cp = proj(cb + side * (wb + BANK * 0.75), 0, zb);
+            drawCottonwood(cp.x, cp.y, cp.s, ft, 3.2 + 1.4 * hash(kk + side), kk * 0.37 + side);
+          }
+        }
+      }
+      while (si < sprites.length && sprites[si].z >= za) { drawSprite(sprites[si], t); si++; }
+    }
+  }
+  function rand0(kk, side) { return hash(kk * 11.1 + side * 2.2); }
+
+  // Waterfalls: every 70-140 m on a random side, 4.5-8.5 m wide
+  var FALLS = [];
+  (function () {
+    var z = 60;
+    for (var i = 0; i < 80; i++) {
+      var len = 4.5 + 4 * hash(i * 4.1 + 1);
+      FALLS.push({ z0: z, z1: z + len, side: hash(i * 2.7 + 5) < 0.5 ? -1 : 1 });
+      z += 70 + 70 * hash(i * 3.3 + 2);
+    }
+  })();
+
+  // One slice of a waterfall: a sheet of water hugging the cliff profile from the rim to the river,
+  // with streaks that stream downward, a white lip at the top and churning foam at the bottom.
+  var FA = { x: [], h: [] }, FB = { x: [], h: [] };
+  function drawFallSlice(side, z0, z1, za, zb, ft, t) {
+    var nb = BANDS.length - 1, j;
+    var fa = (z0 - za) / (zb - za), fb = (z1 - za) / (zb - za);
+    for (j = 0; j <= nb; j++) {
+      FA.h[j] = PA.h[j] + (PB.h[j] - PA.h[j]) * fa; FA.x[j] = PA.x[j] + (PB.x[j] - PA.x[j]) * fa - side * 0.12;
+      FB.h[j] = PA.h[j] + (PB.h[j] - PA.h[j]) * fb; FB.x[j] = PA.x[j] + (PB.x[j] - PA.x[j]) * fb - side * 0.12;
+    }
+    FA.h[nb] -= 0.15; FB.h[nb] -= 0.15;
+    var pa = [], pb = [];
+    for (j = 0; j <= nb; j++) { pa.push(proj(FA.x[j], FA.h[j], z0)); pb.push(proj(FB.x[j], FB.h[j], z1)); }
+    var fade = 1 - ft;
+    // Sheet of falling water
+    ctx.fillStyle = mix([208, 232, 248], ft * 0.8);
+    ctx.globalAlpha = 0.93;
+    ctx.beginPath(); ctx.moveTo(pa[0].x, pa[0].y);
+    for (j = 1; j <= nb; j++) ctx.lineTo(pa[j].x, pa[j].y);
+    for (j = nb; j >= 0; j--) ctx.lineTo(pb[j].x, pb[j].y);
+    ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+    // Streaks streaming down
+    var sc = pa[0].s, cols = ['rgba(255,255,255,' + 0.85 * fade + ')', 'rgba(120,175,215,' + 0.55 * fade + ')'];
+    for (var m = 0; m < 4; m++) {
+      var f = (m + 0.5) / 4;
+      ctx.strokeStyle = cols[m % 2];
+      ctx.lineWidth = Math.max(1, sc * (m % 2 ? 0.07 : 0.11));
+      ctx.setLineDash([sc * (0.9 + 0.5 * (m % 3)), sc * 0.55]);
+      ctx.lineDashOffset = -t * sc * (7 + m);
+      ctx.beginPath();
+      for (j = nb; j >= 0; j--) {
+        var x = pb[j].x + (pa[j].x - pb[j].x) * f, y = pb[j].y + (pa[j].y - pb[j].y) * f;
+        if (j === nb) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]); ctx.lineDashOffset = 0;
+    // White lip where the water spills over the rim
+    ctx.fillStyle = 'rgba(255,255,255,' + 0.9 * fade + ')';
+    poly([pa[nb].x, pa[nb].y - sc * 0.15, pb[nb].x, pb[nb].y - pb[nb].s * 0.15, pb[nb - 1].x, pb[nb].y + pb[nb].s * 0.35, pa[nb - 1].x, pa[nb].y + sc * 0.35]);
+    // Churning foam and spray at the bottom
+    var zc = (z0 + z1) / 2, bx = (FA.x[0] + FB.x[0]) / 2 - side * 0.5;
+    for (var b = 0; b < 3; b++) {
+      var wob = Math.sin(t * 6 + b * 2.1 + zc) * 0.12;
+      var fp = proj(bx - side * b * 0.45, 0.15 + wob, zc);
+      ctx.fillStyle = 'rgba(250,253,255,' + (0.85 - b * 0.18) * fade + ')';
+      ell(ctx, fp.x, fp.y, fp.s * (0.75 + 0.15 * b + wob), fp.s * 0.32); ctx.fill();
+    }
+    var mp = proj(bx - side * 0.6, 1.4, zc), mr = mp.s * 2.6;
+    var mg = ctx.createRadialGradient(mp.x, mp.y, 0, mp.x, mp.y, mr);
+    mg.addColorStop(0, 'rgba(235,246,255,' + 0.3 * fade + ')'); mg.addColorStop(1, 'rgba(235,246,255,0)');
+    ctx.fillStyle = mg; ctx.fillRect(mp.x - mr, mp.y - mr, mr * 2, mr * 2);
+  }
+
+  function drawSprite(it, t) {
+    var o = it.o, p;
+    var fade = 1 - fogT(it.z - camZ);
+    ctx.globalAlpha = Math.max(0, fade);
+    if (it.type === 'duck') { p = proj(o.x, o.y, o.z); drawDuck(ctx, p.x, p.y, p.s * 1.25, o.dir, o.ph); }
+    else if (it.type === 'eagle') {
+      p = proj(o.x, o.y, o.z);
+      var wing = o.flapping > 0 ? Math.sin(o.ph) * 0.4 : 0.06 + Math.sin(it.z * 0.3) * 0.02;   // glide: wings held out
+      drawEagle(ctx, p.x, p.y, p.s, wing, o.z - P.z < 18, o.bank);
+    }
+    else if (it.type === 'plane') { ctx.globalAlpha = 1; drawPlane(t); }
+    ctx.globalAlpha = 1;
+  }
+
+  // Mallard seen from behind as you chase it, wings beating up and down (units: meters)
+  function drawDuck(g, x, y, s, dir, ph) {
+    var beat = Math.sin(ph);                       // +1 = wings up, -1 = wings down
+    g.save(); g.translate(x, y); g.scale(s, s);
+    for (var d = -1; d <= 1; d += 2) {             // wings
+      g.save(); g.translate(d * 0.1, -0.04); g.rotate(d * (-0.15 - beat * 0.75));
+      g.fillStyle = '#6e5a46'; ell(g, d * 0.25, 0, 0.27, 0.075); g.fill();
+      g.fillStyle = '#3b5fc0'; ell(g, d * 0.17, 0.035, 0.09, 0.028); g.fill();     // blue speculum
+      g.fillStyle = '#f2ece0'; ell(g, d * 0.43, 0.01, 0.08, 0.04); g.fill();       // pale wingtip
+      g.restore();
+    }
+    g.fillStyle = '#f08a24'; ell(g, -0.05, 0.17, 0.035, 0.05); g.fill(); ell(g, 0.05, 0.17, 0.035, 0.05); g.fill(); // tucked feet
+    g.fillStyle = '#958069'; ell(g, 0, 0.03, 0.15, 0.14); g.fill();               // body
+    g.fillStyle = '#c8b8a2'; ell(g, 0, 0.08, 0.11, 0.07); g.fill();               // pale belly
+    g.fillStyle = '#2b2b2b'; ell(g, 0, 0.14, 0.06, 0.045); g.fill();              // tail
+    g.strokeStyle = '#2b2b2b'; g.lineWidth = 0.022; g.lineCap = 'round';          // drake's curly tail feather
+    g.beginPath(); g.arc(0.02, 0.1, 0.03, 3.4, 6.6); g.stroke();
+    g.fillStyle = '#ffffff'; ell(g, 0, -0.08, 0.075, 0.025); g.fill();            // white neck ring
+    g.fillStyle = '#1f6b3a'; ell(g, 0, -0.15, 0.085, 0.08); g.fill();             // green head
+    g.fillStyle = '#2f8a50'; ell(g, -0.025, -0.18, 0.03, 0.02); g.fill();
+    g.fillStyle = '#f2b134'; ell(g, dir * 0.09, -0.14, 0.05, 0.02, dir * 0.15); g.fill();  // bill pokes out the way it's turning
+    g.restore();
+  }
+  function poly2(g, pts) {
+    g.beginPath(); g.moveTo(pts[0], pts[1]);
+    for (var i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]);
+    g.closePath(); g.fill();
+  }
+
+  // Bald eagle, head-on, ~2.1 m wingspan. flap = wing angle (small = gliding), bank = roll
+  function drawEagle(g, x, y, s, flap, talonsOut, bank) {
+    g.save(); g.translate(x, y); g.rotate(bank || 0); g.scale(s, s);
+    for (var d = -1; d <= 1; d += 2) {
+      g.save(); g.rotate(d * flap);
+      g.fillStyle = '#4a2c16';
+      poly2(g, [d * 0.12, -0.08, d * 0.55, -0.3, d * 0.92, -0.22, d * 1.08, -0.12, d * 0.98, -0.07, d * 1.06, -0.02,
+                d * 0.94, 0.0, d * 1.0, 0.06, d * 0.86, 0.06, d * 0.6, 0.1, d * 0.12, 0.14]);
+      g.fillStyle = '#6b4224';
+      poly2(g, [d * 0.15, -0.06, d * 0.55, -0.26, d * 0.85, -0.2, d * 0.5, -0.1, d * 0.15, 0.02]);
+      g.restore();
+    }
+    g.fillStyle = '#f5f2ea'; poly2(g, [-0.1, 0.25, 0.1, 0.25, 0.16, 0.44, -0.16, 0.44]);    // tail
+    g.fillStyle = '#3d2412'; ell(g, 0, 0.06, 0.17, 0.25); g.fill();                         // body
+    g.fillStyle = '#f5f2ea'; ell(g, 0, -0.2, 0.15, 0.14); g.fill();                         // white head
+    g.fillStyle = '#ffc93c'; poly2(g, [-0.05, -0.18, 0.05, -0.18, 0.0, -0.06]);             // hooked beak
+    g.fillStyle = '#1a1a1a'; ell(g, -0.06, -0.23, 0.022, 0.022); g.fill(); ell(g, 0.06, -0.23, 0.022, 0.022); g.fill();
+    g.strokeStyle = '#1a1a1a'; g.lineWidth = 0.025; g.lineCap = 'round';                    // angry brows
+    g.beginPath(); g.moveTo(-0.11, -0.29); g.lineTo(-0.02, -0.26); g.moveTo(0.11, -0.29); g.lineTo(0.02, -0.26); g.stroke();
+    g.strokeStyle = '#ffc93c'; g.lineWidth = 0.04;                                           // talons
+    var reach = talonsOut ? 0.16 : 0.06;
+    for (var k = -1; k <= 1; k += 2) {
+      g.beginPath(); g.moveTo(k * 0.07, 0.26); g.lineTo(k * 0.1, 0.3 + reach); g.stroke();
+      g.beginPath(); g.moveTo(k * 0.1, 0.3 + reach);
+      g.lineTo(k * 0.04, 0.36 + reach); g.moveTo(k * 0.1, 0.3 + reach); g.lineTo(k * 0.16, 0.36 + reach); g.stroke();
+    }
+    g.restore();
+  }
+
+  // Roast duck on a plate (size = width in px)
+  function drawRoast(g, x, y, size, steam) {
+    var k = size / 120;
+    g.save(); g.translate(x, y); g.scale(k, k);
+    g.fillStyle = '#f7f3ea'; ell(g, 0, 26, 60, 15); g.fill();
+    g.strokeStyle = '#d6cbb8'; g.lineWidth = 3; ell(g, 0, 26, 46, 10); g.stroke();
+    g.fillStyle = '#6aa84f'; ell(g, -44, 22, 9, 4, -0.4); g.fill(); ell(g, 46, 23, 9, 4, 0.4); g.fill();
+    for (var d = -1; d <= 1; d += 2) {                        // drumsticks with paper frills
+      g.save(); g.translate(d * 30, 4); g.rotate(d * 0.7);
+      g.fillStyle = '#9c4e17'; ell(g, 0, -10, 12, 18); g.fill();
+      g.fillStyle = '#fbf6ec'; g.fillRect(-3, -40, 6, 14);
+      g.beginPath(); g.arc(0, -42, 7, 0, 6.283); g.fill();
+      g.restore();
+    }
+    var gr = g.createRadialGradient(-14, -10, 3, 0, 6, 48);
+    gr.addColorStop(0, '#ffcf7a'); gr.addColorStop(0.45, '#c97624'); gr.addColorStop(1, '#7a3a0e');
+    g.fillStyle = gr; ell(g, 0, 6, 44, 28); g.fill();
+    g.fillStyle = 'rgba(255,245,210,0.6)'; ell(g, -14, -6, 13, 6, -0.3); g.fill();
+    if (steam) {
+      g.strokeStyle = 'rgba(255,255,255,0.7)'; g.lineWidth = 3; g.lineCap = 'round';
+      for (var i = -1; i <= 1; i++) {
+        g.beginPath(); g.moveTo(i * 14, -28);
+        g.bezierCurveTo(i * 14 - 8, -40, i * 14 + 8, -48, i * 14, -60); g.stroke();
+      }
+    }
+    g.restore();
+  }
+
+  // Glider seen from behind
+  function drawPlane(t) {
+    if (state === 'crash' || (state === 'done' && crashWhy)) return;
+    var sh = proj(P.x, 0, P.z);
+    ctx.fillStyle = 'rgba(30,40,40,' + clamp(0.35 - P.y * 0.02, 0.08, 0.35) + ')';
+    ell(ctx, sh.x, sh.y, 1.3 * sh.s, 0.14 * sh.s); ctx.fill();
+    if (P.invuln > 0 && Math.floor(P.invuln * 14) % 2) return;
+    var p = proj(P.x, P.y, P.z);
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(P.bank); ctx.scale(p.s, p.s);
+    // Main wing with a little dihedral
+    ctx.fillStyle = '#f4f1ea';
+    poly2(ctx, [-1.35, -0.13, -0.15, -0.03, 0.15, -0.03, 1.35, -0.13, 1.35, -0.07, 0.15, 0.04, -0.15, 0.04, -1.35, -0.07]);
+    ctx.fillStyle = '#d32f2f';
+    poly2(ctx, [-1.35, -0.13, -1.12, -0.11, -1.12, -0.05, -1.35, -0.07]);
+    poly2(ctx, [1.35, -0.13, 1.12, -0.11, 1.12, -0.05, 1.35, -0.07]);
+    ctx.fillStyle = 'rgba(0,0,0,0.15)';
+    poly2(ctx, [-1.35, -0.08, -0.15, 0.025, 0.15, 0.025, 1.35, -0.08, 1.35, -0.07, 0.15, 0.04, -0.15, 0.04, -1.35, -0.07]);
+    // Fuselage and canopy with the pilot
+    var fg = ctx.createRadialGradient(-0.05, -0.05, 0.02, 0, 0, 0.18);
+    fg.addColorStop(0, '#ffffff'); fg.addColorStop(1, '#cfc8bb');
+    ctx.fillStyle = fg; ell(ctx, 0, 0.0, 0.17, 0.16); ctx.fill();
+    ctx.fillStyle = 'rgba(150,205,240,0.9)'; ell(ctx, 0, -0.14, 0.11, 0.09); ctx.fill();
+    ctx.fillStyle = '#8a4b22'; ell(ctx, 0, -0.15, 0.05, 0.05); ctx.fill();               // pilot's leather cap
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ell(ctx, -0.05, -0.18, 0.03, 0.02, -0.4); ctx.fill();
+    // T-tail: red fin with the elevator on top
+    ctx.fillStyle = '#d32f2f'; poly2(ctx, [-0.03, -0.02, 0.03, -0.02, 0.025, -0.5, -0.025, -0.5]);
+    ctx.fillStyle = '#f4f1ea'; poly2(ctx, [-0.44, -0.52, 0.44, -0.52, 0.44, -0.47, -0.44, -0.47]);
+    ctx.fillStyle = '#d32f2f'; poly2(ctx, [-0.44, -0.52, -0.36, -0.52, -0.36, -0.47, -0.44, -0.47]);
+    poly2(ctx, [0.36, -0.52, 0.44, -0.52, 0.44, -0.47, 0.36, -0.47]);
+    ctx.restore();
+  }
+
+  function drawWarnings(t) {
+    if (state !== 'playing') return;
+    var c = cx(P.z), wl = wallAt(P.z, P.y) - CRASH_MARGIN;
+    var mL = P.x - (c - wl), mR = (c + wl) - P.x, mD = P.y - FLOOR;
+    var pulse = 0.75 + 0.25 * Math.sin(t * 18);
+    function edge(m, x0, y0, x1, y1, rx, ry, rw, rh) {
+      if (m > 2.2) return;
+      var a = (1 - m / 2.2) * 0.6 * pulse;
+      var g = ctx.createLinearGradient(x0, y0, x1, y1);
+      g.addColorStop(0, 'rgba(255,40,20,' + a + ')'); g.addColorStop(1, 'rgba(255,40,20,0)');
+      ctx.fillStyle = g; ctx.fillRect(rx, ry, rw, rh);
+    }
+    var e = Math.min(W, H) * 0.28;
+    edge(mL, 0, 0, e, 0, 0, 0, e, H);
+    edge(mR, W, 0, W - e, 0, W - e, 0, e, H);
+    edge(mD * 1.4, 0, H, 0, H - e, 0, H - e, W, e);
+  }
+
+  function drawSplash() {
+    if (!splash) return;
+    var b = splash, t = b.t, s = b.s, i;
+    var fade = clamp((2.1 - t) / 0.7, 0, 1);
+    // Ripple rings spreading across the river
+    for (i = 0; i < 4; i++) {
+      var tt = t - i * 0.18;
+      if (tt <= 0) continue;
+      var r = s * (0.6 + 2.6 * tt), a = clamp(1 - tt / 1.5, 0, 1) * 0.85;
+      ctx.strokeStyle = 'rgba(235,250,255,' + a + ')'; ctx.lineWidth = Math.max(2, s * 0.07 * (1 - tt / 1.8));
+      ell(ctx, b.x, b.y, r, r * 0.22); ctx.stroke();
+    }
+    // Soft mist
+    var mg = ctx.createRadialGradient(b.x, b.y - s * 1.4, 0, b.x, b.y - s * 1.4, s * 3.4);
+    mg.addColorStop(0, 'rgba(240,250,255,' + 0.45 * fade + ')'); mg.addColorStop(1, 'rgba(240,250,255,0)');
+    ctx.fillStyle = mg; ctx.fillRect(b.x - s * 3.4, b.y - s * 4.8, s * 6.8, s * 6.8);
+    // Tall foamy plume: shoots up, then collapses
+    var up = t < 0.5 ? t / 0.5 : Math.max(0, 1 - (t - 0.5) / 1.1);
+    var hgt = s * 3.4 * Math.sin(up * Math.PI / 2);
+    if (hgt > 1) {
+      for (i = 0; i <= 12; i++) {
+        var f = i / 12, yy = b.y - hgt * f;
+        var ww = s * (0.95 - 0.55 * f) * (0.9 + 0.15 * Math.sin(i * 2.3 + t * 9));
+        var xx = b.x + Math.sin(i * 1.7 + t * 3) * 0.12 * s;
+        var fg = ctx.createRadialGradient(xx - ww * 0.3, yy - ww * 0.3, ww * 0.1, xx, yy, ww);
+        fg.addColorStop(0, 'rgba(255,255,255,' + 0.95 * fade + ')'); fg.addColorStop(1, 'rgba(170,215,240,' + 0.55 * fade + ')');
+        ctx.fillStyle = fg; ell(ctx, xx, yy, ww, ww * 0.75); ctx.fill();
+      }
+    }
+    // Crown of spray around the impact
+    if (t < 1.0) {
+      var cr = s * (0.7 + 1.5 * t), ch = s * 1.5 * Math.sin(Math.min(1, t / 0.3) * Math.PI / 2) * (1 - t);
+      ctx.fillStyle = 'rgba(228,246,255,0.88)';
+      for (i = 0; i < 16; i++) {
+        var ang = i / 16 * 6.283, px = b.x + Math.cos(ang) * cr, py = b.y + Math.sin(ang) * cr * 0.22;
+        poly2(ctx, [px - 0.13 * s, py, px + 0.13 * s, py, px + Math.cos(ang) * 0.35 * s, py - ch * (0.55 + 0.45 * hash(i))]);
+      }
+    }
+    if (t < 0.12) { ctx.fillStyle = 'rgba(225,245,255,' + (0.5 - t * 4) + ')'; ctx.fillRect(0, 0, W, H); }
+  }
+
+  function drawFireball() {
+    if (!boom) return;
+    var b = boom, t = b.t, s = b.s;
+    for (var i = 0; i < b.blobs.length; i++) {
+      var bl = b.blobs[i], tt = t - bl.d;
+      if (tt <= 0) continue;
+      var grow = 1 - Math.pow(1 - Math.min(1, tt / 0.55), 3);
+      var r = s * bl.r * (0.4 + 1.6 * grow), x = b.x + bl.dx * s * 1.4 * grow, y = b.y + bl.dy * s * grow - tt * s * 0.35;
+      var a = clamp(1.4 - tt * 0.9, 0, 1);
+      if (tt > 0.6) {   // smoke
+        ctx.fillStyle = 'rgba(60,50,45,' + (a * 0.55) + ')'; ctx.beginPath(); ctx.arc(x, y - (tt - 0.6) * s * 0.6, r * 1.15, 0, 6.283); ctx.fill();
+      }
+      var g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, 'rgba(255,250,210,' + a + ')'); g.addColorStop(0.35, 'rgba(255,190,60,' + a + ')');
+      g.addColorStop(0.75, 'rgba(240,80,20,' + (a * 0.9) + ')'); g.addColorStop(1, 'rgba(160,30,10,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill();
+    }
+    if (t < 0.15) { ctx.fillStyle = 'rgba(255,240,200,' + (0.6 - t * 4) + ')'; ctx.fillRect(0, 0, W, H); }
+  }
+
+  function draw(t) {
+    ctx.save();
+    if (shake > 0) ctx.translate(rand(-1, 1) * shake * 16, rand(-1, 1) * shake * 12);
+    // Roll the whole view a little with the glider for a flying feel
+    var pp = proj(P.x, P.y, P.z);
+    ctx.translate(pp.x, pp.y); ctx.rotate(-P.bank * 0.28); ctx.translate(-pp.x, -pp.y);
+    drawSky();
+    var list = [], i;
+    function add(z, type, o) { var dz = z - camZ; if (dz > 0.5 && dz < VIEW) list.push({ z: z, type: type, o: o }); }
+    for (i = 0; i < ducks.length; i++) add(ducks[i].z, 'duck', ducks[i]);
+    for (i = 0; i < eagles.length; i++) add(eagles[i].z, 'eagle', eagles[i]);
+    add(P.z, 'plane', null);
+    list.sort(function (a, b) { return b.z - a.z; });
+    drawCanyon(list, t);
+    ctx.restore();
+
+    // Screen-space effects
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1.5;
+    for (i = 0; i < parts.length; i++) {
+      var q = parts[i];
+      if (!q.streak) continue;
+      ctx.globalAlpha = clamp(q.life / q.max, 0, 1);
+      ctx.beginPath(); ctx.moveTo(q.x, q.y); ctx.lineTo(q.x - q.vx * 0.05, q.y - q.vy * 0.05); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    drawWarnings(t);
+    if (state === 'playing' && tiltOn() && tilt.aim) {
+      var tp = proj(P.x, P.y, P.z), rr = Math.max(60, Math.min(W, H) * 0.16);
+      var ax2 = tp.x + tilt.aim.x * rr, ay2 = tp.y - tilt.aim.y * rr;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 6]);
+      ctx.beginPath(); ctx.arc(tp.x, tp.y, rr, 0, 6.283); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,240,215,0.85)'; ctx.strokeStyle = 'rgba(40,20,10,0.5)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(ax2, ay2, 6, 0, 6.283); ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+    var steering = state === 'playing' && mouse.active && mouse.inside;
+    var cur = steering ? 'none' : '';
+    if (document.body.style.cursor !== cur) document.body.style.cursor = cur;
+    if (steering) {
+      var gp = proj(P.x, P.y, P.z);
+      ctx.save();
+      ctx.setLineDash([4, 8]); ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(gp.x, gp.y); ctx.lineTo(mouse.x, mouse.y); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(40,20,10,0.55)'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 13, 0, 6.283); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,240,215,0.95)'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(mouse.x, mouse.y, 13, 0, 6.283);
+      ctx.moveTo(mouse.x - 20, mouse.y); ctx.lineTo(mouse.x - 7, mouse.y); ctx.moveTo(mouse.x + 7, mouse.y); ctx.lineTo(mouse.x + 20, mouse.y);
+      ctx.moveTo(mouse.x, mouse.y - 20); ctx.lineTo(mouse.x, mouse.y - 7); ctx.moveTo(mouse.x, mouse.y + 7); ctx.lineTo(mouse.x, mouse.y + 20);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Eagles flying off with your dinner
+    for (i = 0; i < fleers.length; i++) {
+      var f = fleers[i], ft = f.t;
+      var fx = f.x + f.dir * ft * W * 0.35, fy = f.y - ft * ft * H * 0.5 - ft * H * 0.15, fs = f.s * (1 + ft * 0.4);
+      ctx.globalAlpha = clamp(1.6 - ft, 0, 1);
+      for (var k = 0; k < f.n; k++) {
+        var rxp = fx + (k ? 0.1 : -0.1) * fs, ryp = fy + 0.62 * fs + Math.sin(ft * 12 + k) * 0.03 * fs;
+        ctx.strokeStyle = '#ffc93c'; ctx.lineWidth = Math.max(2, fs * 0.03);
+        ctx.beginPath(); ctx.moveTo(fx + (k ? 0.1 : -0.1) * fs, fy + 0.4 * fs); ctx.lineTo(rxp, ryp - 0.12 * fs); ctx.stroke();
+        drawRoast(ctx, rxp, ryp, fs * 0.42, false);
+      }
+      drawEagle(ctx, fx, fy, fs, Math.sin(ft * 14) * 0.4, true, 0);
+      ctx.globalAlpha = 1;
+    }
+
+    // Ducks turning into roasts and flying to the counter
+    var hr = hudDucks.getBoundingClientRect(), hx = hr.left + hr.width * 0.28, hy = hr.top + hr.height / 2;
+    for (i = 0; i < roasts.length; i++) {
+      var r = roasts[i], u = r.t;
+      if (u < 0.3) {
+        var pop = 1 + Math.sin(u / 0.3 * Math.PI) * 0.25;
+        drawRoast(ctx, r.x0, r.y0, r.s0 * pop, true);
+      } else {
+        var v = (u - 0.3) / 0.55, e = v * v * (3 - 2 * v);
+        drawRoast(ctx, r.x0 + (hx - r.x0) * e, r.y0 + (hy - r.y0) * e - Math.sin(e * Math.PI) * 60, r.s0 + (26 - r.s0) * e, false);
+      }
+    }
+
+    for (i = 0; i < parts.length; i++) {
+      var o = parts[i];
+      if (o.streak) continue;
+      ctx.globalAlpha = clamp(o.life / o.max, 0, 1);
+      if (o.text) {
+        ctx.font = '700 28px Fredoka, sans-serif'; ctx.textAlign = 'center';
+        ctx.lineWidth = 5; ctx.strokeStyle = 'rgba(40,15,5,0.75)'; ctx.strokeText(o.text, o.x, o.y);
+        ctx.fillStyle = o.c; ctx.fillText(o.text, o.x, o.y);
+      } else {
+        ctx.fillStyle = o.c; ctx.beginPath(); ctx.arc(o.x, o.y, o.r, 0, 6.283); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+    drawFireball();
+    drawSplash();
+  }
+
+  // ---- Main loop ----
+  var last = performance.now();
+  function frame(now) {
+    var dt = Math.min(0.033, (now - last) / 1000);
+    last = now;
+    update(dt);
+    draw(now / 1000);
+    requestAnimationFrame(frame);
+  }
+
+  // ---- Difficulty picker + leaderboard (shared panel from lbpanel) ----
+  var lb = RubenLB.create({ game: 'duck', column: 'Ducks', level: level, corner: true,
+                            meEl: document.getElementById('me'), boardEl: document.getElementById('lb') });
+  var diffBtns = document.querySelectorAll('#diff button');
+  function setLevel(l) {
+    level = l; L = LEVELS[l];
+    try { localStorage.setItem(LEVEL_KEY, l); } catch (e) {}
+    best = loadBest();
+    for (var i = 0; i < diffBtns.length; i++) diffBtns[i].className = diffBtns[i].getAttribute('data-level') === l ? 'on' : '';
+    document.getElementById('lvlNote').textContent = L.note;
+    lb.setLevel(l);
+    updateHud();
+  }
+  for (var di = 0; di < diffBtns.length; di++) {
+    diffBtns[di].addEventListener('click', function () { setLevel(this.getAttribute('data-level')); });
+  }
+
+  P = newPlane();
+  spawnDuck(40); spawnDuck(62);
+  resize();
+  camX = P.x; camY = P.y + 1; camZ = P.z - CAM_D;
+  setLevel(level);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

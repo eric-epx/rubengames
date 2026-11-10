@@ -1,0 +1,2801 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Door Dasher · Ruben Games</title>
+<meta name="description" content="Race hot pizzas across town. Far-away homes pay more and fast drivers earn big tips, but every bump costs cash!">
+<meta property="og:title" content="Door Dasher · Ruben Games"><meta property="og:description" content="Race hot pizzas across town. Far-away homes pay more and fast drivers earn big tips, but every bump costs cash!"><meta property="og:site_name" content="Ruben Games">
+<meta name="theme-color" content="#0d1016">
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="rg-api.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>window.THREE || document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>');</script>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #86bf68;
+    font-family: 'Fredoka', 'Trebuchet MS', Arial, sans-serif; color: #3a2216; user-select: none;
+    -webkit-user-select: none; -webkit-touch-callout: none; overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent; }
+  #game { display: block; width: 100vw; height: 100vh; touch-action: none; }
+  #dash { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 2; }
+
+  /* ---- In-game HUD ---- */
+  #hud { position: fixed; top: 10px; right: 14px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+    font-size: 24px; font-weight: 600; pointer-events: none; z-index: 3; }
+  .pill { background: rgba(255,250,242,0.9); padding: 6px 16px; border-radius: 999px; box-shadow: 0 2px 8px rgba(58,34,22,0.2); }
+  #hud[hidden] { display: none; }
+  #sndHud { pointer-events: auto; font: inherit; font-size: 20px; border: 0; cursor: pointer; color: inherit; box-shadow: 0 2px 8px rgba(58,34,22,0.2); background: rgba(255,250,242,0.9); }
+  #sndHud:active { transform: none; }
+  #sndBtn { font-size: 15px; padding: 5px 16px; margin: -6px 0 14px; background: rgba(255,255,255,0.85); color: #7a5134; border: 2px solid #e2d3bd; box-shadow: none; }
+  #sndBtn:active { transform: none; box-shadow: none; }
+  #time.low { color: #d23a2a; }
+  #cash.pop { animation: pop .3s ease; }
+  #cash.ouch { animation: ouch .5s ease; }
+  @keyframes pop { 50% { transform: scale(1.25); color: #23843c; } }
+  @keyframes ouch { 20%, 60% { transform: translateX(-7px); color: #d23a2a; } 40%, 80% { transform: translateX(7px); color: #d23a2a; } }
+
+  /* Turn-by-turn directions (top left) */
+  #nav { position: fixed; top: 10px; left: 12px; z-index: 3; width: min(300px, calc(100vw - 150px)); pointer-events: none;
+    background: #1f6a3a; color: #fff; border-radius: 16px; box-shadow: 0 4px 14px rgba(0,0,0,0.3); overflow: hidden; }
+  #nav[hidden] { display: none; }
+  .navTop { display: flex; align-items: center; gap: 12px; padding: 10px 14px 9px 10px; }
+  #navIcon { width: 52px; height: 52px; flex: none; }
+  #navIcon svg { width: 100%; height: 100%; display: block; }
+  #navMain { font-size: 25px; font-weight: 700; line-height: 1.05; }
+  #navSub { font-size: 16px; font-weight: 500; opacity: 0.9; margin-top: 2px; }
+  #navThen { background: #17542d; font-size: 15px; padding: 5px 14px; font-weight: 500; }
+  #navThen:empty { display: none; }
+  #navTo { background: #fffaf2; color: #3a2216; padding: 7px 14px 4px; font-size: 15px; line-height: 1.3; }
+  #navTo b { color: #d23a2a; }
+  #tip { background: #fffaf2; color: #3a2216; display: flex; align-items: center; gap: 8px; padding: 2px 14px 9px; font-size: 15px; }
+  #tip i { flex: 1; height: 9px; border-radius: 9px; background: #eadfcd; overflow: hidden; }
+  #tip i b { display: block; height: 100%; width: 100%; background: #2f9c4c; border-radius: 9px; transition: width .2s linear; }
+  #tip.low i b { background: #e0892a; }
+  #tip.gone i b { background: #d23a2a; }
+  #tipVal { font-weight: 700; min-width: 2.6em; text-align: right; }
+
+  /* ---- Start / end screen ---- */
+  #overlay { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center;
+    justify-content: safe center; text-align: center; background: rgba(255,246,232,0.86); padding: 16px;
+    overflow-y: auto; box-sizing: border-box; }
+  #overlay[hidden] { display: none; }
+  h1 { font-weight: 700; color: #d23a2a; font-size: clamp(42px, 8vw, 82px); margin: 0 0 10px; line-height: 1;
+    text-shadow: 0 3px 0 #fff, 0 6px 18px rgba(210,58,42,0.3); }
+  #msg { font-size: clamp(17px, 2.5vw, 21px); max-width: 600px; line-height: 1.5; margin: 0 0 20px; }
+  #msg b { color: #d23a2a; }
+  .keys { display: inline-block; min-width: 1.5em; padding: 0 6px; border-radius: 6px; background: #fff;
+    border: 1px solid #c9b394; box-shadow: 0 2px 0 #c9b394; font-size: 0.85em; }
+  button { font: inherit; font-size: 24px; font-weight: 600; padding: 12px 40px; border: 0;
+    border-radius: 999px; background: #d23a2a; color: #fff; cursor: pointer;
+    box-shadow: 0 4px 0 #8e1e14, 0 8px 20px rgba(210,58,42,0.35); }
+  button:active { transform: translateY(3px); box-shadow: 0 1px 0 #8e1e14; }
+  #home { margin-top: 22px; color: #7a5134; font-size: 18px; text-decoration: none; }
+  #home:hover { color: #d23a2a; }
+  #lvlNote { margin: -8px 0 14px; font-size: 15px; color: #7a5134; min-height: 1.2em; }
+  .diff { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin: 0 0 16px; }
+  .diff button { font-size: 18px; padding: 7px 22px; background: rgba(255,255,255,0.85); color: #1f6a3a;
+    border: 2px solid #b9cfa8; box-shadow: none; }
+  .diff button.on { background: #1f6a3a; border-color: #1f6a3a; color: #fff; }
+  .diff button:active { transform: none; box-shadow: none; }
+  #me, #lb { --lb-accent: #d23a2a; --lb-text: #3a2216; --lb-muted: #7a5134; --lb-panel: rgba(255,255,255,0.8);
+    --lb-line: rgba(122,81,52,0.15); --lb-hi: rgba(31,106,58,0.1); --lb-hi2: rgba(210,58,42,0.16);
+    --lb-btn: rgba(255,255,255,0.85); --lb-btn-line: #c9b394; --lb-save: #d23a2a; --lb-save-text: #fff; --lb-err: #c62828; }
+  #me button:active { transform: none; }
+
+  /* ---- Phone / tablet controls: a joystick for the left thumb, a pizza button for the right (see-through) ---- */
+  #joyZone { position: fixed; left: 0; bottom: 0; width: 58vw; height: 62vh; z-index: 5; display: none; touch-action: none; }
+  #joy { position: fixed; z-index: 6; width: 136px; height: 136px; margin: -68px 0 0 -68px; border-radius: 50%; display: none;
+    pointer-events: none; background: rgba(255,255,255,0.14); border: 2px solid rgba(255,255,255,0.5);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.12), inset 0 0 18px rgba(0,0,0,0.15); transition: opacity .2s ease; opacity: 0.55; }
+  #joy.active { opacity: 1; }
+  #joy i { position: absolute; color: rgba(255,255,255,0.75); font-style: normal; font-size: 15px; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+  #joyKnob { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%;
+    background: rgba(255,255,255,0.55); border: 2px solid rgba(255,255,255,0.85); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+  #dropBtn { position: fixed; z-index: 6; right: max(18px, env(safe-area-inset-right)); bottom: calc(26px + env(safe-area-inset-bottom));
+    width: 104px; height: 104px; border-radius: 50%; display: none; padding: 0; touch-action: none;
+    background: rgba(255,207,63,0.35); border: 3px solid rgba(255,230,140,0.75); color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    font: 700 13px Fredoka, Arial, sans-serif; letter-spacing: 1.5px; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+  #dropBtn b { display: block; font-size: 40px; line-height: 1; text-shadow: none; }
+  #dropBtn.ready { background: rgba(255,207,63,0.88); border-color: #fff; color: #5a3a00; text-shadow: none; box-shadow: 0 0 22px rgba(255,207,63,0.95); }
+  #dropBtn:active { transform: scale(0.95); }
+  #dropHint { position: fixed; left: 50%; transform: translateX(-50%); z-index: 4; pointer-events: none;
+    bottom: calc(var(--ctl-h, 0px) + 20vh); background: #ffcf3f; color: #3a2216; font-weight: 700; font-size: 22px;
+    padding: 8px 22px; border-radius: 999px; box-shadow: 0 4px 14px rgba(0,0,0,0.3); white-space: nowrap; }
+  #dropHint[hidden] { display: none; }
+
+  @media (max-width: 560px) {
+    #hud { font-size: 19px; right: 8px; top: 8px; gap: 6px; }
+    .pill { padding: 4px 11px; }
+    #nav { left: 8px; top: 8px; border-radius: 13px; }
+    .navTop { padding: 7px 10px 6px 7px; gap: 8px; }
+    #navIcon { width: 40px; height: 40px; }
+    #navMain { font-size: 20px; }
+    #navSub, #navThen, #navTo, #tip { font-size: 13px; }
+  }
+  @media (max-height: 560px) {
+    h1 { font-size: 40px; margin-bottom: 4px; }
+    #msg { font-size: 15px; margin-bottom: 10px; line-height: 1.35; }
+    button { font-size: 20px; padding: 9px 32px; }
+    #home { margin-top: 10px; font-size: 15px; }
+  }
+</style>
+<!-- Ruben Games shared leaderboard panel (HTML file named "lbpanel" in Apps Script).
+     Games pull it in with the include scriptlet, and it pulls in the shared sign-in file ("auth").
+     Then:  var lb = RubenLB.create({ game: 'duck', column: 'Ducks', meEl: ..., boardEl: ..., level: 'easy' });
+            lb.setLevel('hard');  lb.beginRun();  lb.finishRun(score, outcome);
+     meEl holds the player's head button (menu: Edit Player Name / Switch Player / Sign Out).
+     Colours come from CSS variables the game can set on the two elements (see .rlb defaults below). -->
+<!-- Ruben Games sign-in (HTML file named "auth" in Apps Script).
+     Every page pulls it in through the shared include (the leaderboard panel includes it for the games).
+     It shows the user name / password screen when nobody is signed in, keeps the player signed in for
+     the rest of the browser session, and draws the little head button with the player menu.
+
+     Page code can use:
+       RubenAuth.token()             the signed-in player's session token (or null)
+       RubenAuth.user()              { name, user } or null   (name = leaderboard name, user = sign-in name)
+       RubenAuth.onUser(fn)          fn(user, why) whenever the player changes; why = boot | signin | rename | signout
+       RubenAuth.mountHead(el)       put the head button + menu inside el
+       RubenAuth.expired()           the server said the session is no good: sign in again -->
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  .rga, .rga * { box-sizing: border-box; }
+  .rga { --a-bg: #0d1016; --a-surface: #151a22; --a-surface2: #1b212b; --a-text: #e9edf3; --a-muted: #97a1b0;
+    --a-border: #2a3240; --a-brand: #f0a64a; --a-err: #ff9d8a;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: var(--a-text);
+    -webkit-user-select: text; user-select: text; }
+
+  /* ---- Head button + menu ---- */
+  .rga-headwrap { position: relative; display: inline-block; line-height: 0; }
+  .rga-headwrap[hidden] { display: none; }
+  .rga-fixed { position: fixed; top: 12px; right: 14px; z-index: 50; }
+  /* The whole pill is the button: "Playing as / Name" next to the head, so everyone can see who's signed in */
+  .rga-pill { display: flex; align-items: center; gap: 10px; margin: 0; padding: 4px 4px 4px 14px; cursor: pointer;
+    border-radius: 999px; max-width: min(300px, calc(100vw - 120px)); text-align: right; line-height: 1.15;
+    background: rgba(14,17,23,0.74); color: #e9edf3; border: 1.5px solid rgba(255,255,255,0.24);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    transition: border-color .15s ease, transform .15s ease; font-family: 'Inter', system-ui, sans-serif; }
+  .rga-pill:hover, .rga-pill[aria-expanded="true"] { border-color: var(--a-brand); }
+  .rga-pill:active { transform: scale(0.97); }
+  .rga-pill:focus-visible { outline: 3px solid rgba(240,166,74,0.5); outline-offset: 2px; }
+  .rga-label { min-width: 0; display: flex; flex-direction: column; align-items: flex-end; }
+  .rga-label small { font-size: 11px; font-weight: 500; color: #aab3c0; letter-spacing: 0.2px; }
+  .rga-label b { font: 600 16px/1.2 'Outfit', sans-serif; color: #fff; max-width: 100%;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rga-head { width: 34px; height: 34px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    background: rgba(255,255,255,0.12); color: #e9edf3; }
+  .rga-head svg { width: 22px; height: 22px; display: block; }
+  .rga-menu { position: absolute; top: 50px; right: 0; min-width: 230px; padding: 6px; line-height: 1.3; text-align: left;
+    background: var(--a-surface); border: 1px solid var(--a-border); border-radius: 14px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.45); z-index: 60; }
+  .rga-menu[hidden] { display: none; }
+  .rga-who { padding: 8px 12px 10px; border-bottom: 1px solid var(--a-border); margin-bottom: 4px; }
+  .rga-who[hidden] { display: none; }
+  .rga-who small { display: block; color: var(--a-muted); font-size: 12px; }
+  .rga-who b { display: block; font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 18px; margin: 1px 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+  .rga-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; border: 0; border-radius: 9px;
+    background: none; color: var(--a-text); font: 500 15px 'Inter', system-ui, sans-serif; cursor: pointer; text-align: left; box-shadow: none; }
+  .rga-item:hover, .rga-item:focus-visible { background: var(--a-surface2); outline: none; }
+  .rga-item svg { width: 18px; height: 18px; flex: none; color: var(--a-muted); }
+
+  /* ---- Sign-in / create player / rename screen ---- */
+  .rga-modal { position: fixed; inset: 0; z-index: 1000; display: flex; padding: 16px; overflow-y: auto;
+    background: rgba(6,8,12,0.8); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  .rga-modal[hidden] { display: none; }
+  .rga-card { margin: auto; width: min(400px, 100%); padding: 26px 24px 20px; border-radius: 20px;
+    background: var(--a-surface); border: 1px solid var(--a-border); box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
+  .rga-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+  .rga-logo { width: 46px; height: 46px; border-radius: 13px; flex: none; display: grid; place-items: center;
+    background: linear-gradient(145deg, #f6b765, #c9662a); color: #1a0e05; font: 700 19px 'Outfit', sans-serif; letter-spacing: 0.5px;
+    box-shadow: 0 6px 18px rgba(240,166,74,0.25); }
+  .rga-title { font: 700 24px/1.1 'Outfit', sans-serif; letter-spacing: -0.3px; }
+  .rga-sub { color: var(--a-muted); font-size: 14.5px; margin-top: 3px; }
+  .rga-tabs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--a-bg); border: 1px solid var(--a-border); margin-bottom: 18px; }
+  .rga-tabs[hidden] { display: none; }
+  .rga-tabs button { flex: 1; height: 38px; border: 0; border-radius: 9px; background: none; color: var(--a-muted); cursor: pointer;
+    font: 600 15px 'Inter', system-ui, sans-serif; box-shadow: none; }
+  .rga-tabs button.on { background: var(--a-surface2); color: var(--a-text); box-shadow: 0 1px 3px rgba(0,0,0,0.35); }
+  .rga-recent { margin-bottom: 14px; }
+  .rga-recent[hidden] { display: none; }
+  .rga-recent > span { display: block; font-size: 13px; color: var(--a-muted); margin-bottom: 7px; }
+  .rga-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .rga-chips button { border: 1px solid var(--a-border); background: var(--a-surface2); color: var(--a-text); cursor: pointer;
+    border-radius: 999px; padding: 6px 13px; font: 500 14px 'Inter', system-ui, sans-serif; box-shadow: none; }
+  .rga-chips button:hover { border-color: var(--a-brand); }
+  .rga-field { display: block; margin-bottom: 14px; }
+  .rga-field > span { display: block; font-size: 13.5px; font-weight: 600; color: #c5cdd8; margin-bottom: 6px; }
+  .rga-field small { display: block; font-size: 12.5px; color: var(--a-muted); margin-top: 6px; }
+  .rga-field small[hidden] { display: none; }
+  .rga-inp { position: relative; }
+  .rga-inp input { width: 100%; height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--a-border);
+    background: var(--a-bg); color: var(--a-text); font: 400 16px 'Inter', system-ui, sans-serif; outline: none; margin: 0; }
+  .rga-inp input:focus { border-color: var(--a-brand); box-shadow: 0 0 0 3px rgba(240,166,74,0.2); }
+  .rga-inp.pw input { padding-right: 70px; }
+  .rga-eye { position: absolute; right: 6px; top: 6px; height: 36px; padding: 0 10px; border: 0; border-radius: 8px; cursor: pointer;
+    background: none; color: var(--a-muted); font: 600 13px 'Inter', system-ui, sans-serif; box-shadow: none; }
+  .rga-eye:hover { color: var(--a-text); background: var(--a-surface2); }
+  .rga-err.ok { color: #7fd99a; }
+  .rga-list { display: flex; flex-direction: column; gap: 6px; margin: -4px 0 12px; max-height: min(46vh, 430px); overflow-y: auto; }
+  .rga-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 12px; border-radius: 12px; cursor: pointer; text-align: left;
+    border: 1px solid var(--a-border); background: var(--a-surface2); color: var(--a-text); font: 500 15px 'Inter', system-ui, sans-serif; box-shadow: none; }
+  .rga-row:hover, .rga-row.hi { border-color: var(--a-brand); background: #232a35; }
+  .rga-face { width: 34px; height: 34px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    background: linear-gradient(145deg, #f6b765, #c9662a); color: #1a0e05; font: 700 16px 'Outfit', sans-serif; }
+  .rga-new .rga-face { background: #2f7d3e; color: #fff; font-size: 20px; }
+  .rga-pick { display: flex; flex-direction: column; min-width: 0; }
+  .rga-pick b { font: 600 16px 'Outfit', sans-serif; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rga-pick small { color: var(--a-muted); font-size: 12.5px; }
+  .rga-note { color: var(--a-muted); font-size: 14px; padding: 8px 4px; }
+  .rga-note.rga-bad { color: #ff9b8a; }
+  .rga-err { color: var(--a-err); font-size: 14px; min-height: 20px; margin: -2px 0 10px; line-height: 1.4; }
+  .rga-go { width: 100%; height: 50px; border: 0; border-radius: 12px; cursor: pointer; background: var(--a-brand); color: #1a0e05;
+    font: 600 17px 'Outfit', sans-serif; letter-spacing: 0.2px; box-shadow: 0 4px 14px rgba(240,166,74,0.22); }
+  .rga-go:hover { background: #f5b462; }
+  .rga-go:disabled { opacity: 0.65; cursor: default; }
+  .rga-cancel { width: 100%; height: 42px; margin-top: 8px; border: 1px solid var(--a-border); border-radius: 12px; cursor: pointer;
+    background: none; color: var(--a-text); font: 500 15px 'Inter', system-ui, sans-serif; box-shadow: none; }
+  .rga-cancel[hidden] { display: none; }
+  .rga-cancel:hover { background: var(--a-surface2); }
+  .rga-foot { text-align: center; color: var(--a-muted); font-size: 13px; margin: 14px 0 0; }
+  .rga-foot[hidden] { display: none; }
+</style>
+<script>
+window.RG_BOOT = {"homeUrl":"","urlToken":""};
+window.RubenAuth = (function () {
+  'use strict';
+  var HELP_CONTACT = 'Eric';                 // "Forgot your password? Ask Eric to reset it."
+  var USER_MAX = 20, PW_MIN = 4, PW_MAX = 8;
+  var BOOT = window.RG_BOOT || {};
+  var hasServer = typeof google !== 'undefined' && google.script && google.script.run;
+
+  // Signed in for the rest of the browser session: sessionStorage is cleared when the tab/browser closes.
+  // If the browser blocks storage in the Apps Script frame, the sign-in rides along in arcade links instead.
+  var store = null, local = null;
+  try { sessionStorage.setItem('rg_t', '1'); sessionStorage.removeItem('rg_t'); store = sessionStorage; } catch (e) {}
+  try { localStorage.getItem('rg_t'); local = localStorage; } catch (e) {}
+
+  var session = load(), booted = false, listeners = [], heads = [];
+
+  function load() {
+    if (store) {
+      try { var j = JSON.parse(store.getItem('rgSession') || 'null'); if (j && j.token) return j; } catch (e) {}
+      return null;
+    }
+    return BOOT.urlToken ? { token: BOOT.urlToken, name: '', user: '' } : null;
+  }
+  function save() {
+    if (!store) return;
+    try { if (session) store.setItem('rgSession', JSON.stringify(session)); else store.removeItem('rgSession'); } catch (e) {}
+  }
+  function recent() {
+    try { return (JSON.parse(local.getItem('rgRecent') || '[]') || []).filter(function (x) { return typeof x === 'string' && x; }).slice(0, 6); }
+    catch (e) { return []; }
+  }
+  function addRecent(u) {
+    if (!local || !u) return;
+    var r = recent().filter(function (x) { return x.toLowerCase() !== u.toLowerCase(); });
+    r.unshift(u);
+    try { local.setItem('rgRecent', JSON.stringify(r.slice(0, 6))); } catch (e) {}
+  }
+  function pub() { return session ? { name: session.name, user: session.user } : null; }
+  function emit(why) {
+    renderHeads();
+    listeners.slice().forEach(function (cb) { try { cb(pub(), why); } catch (e) { setTimeout(function () { throw e; }); } });
+  }
+  // Every call gets an answer: if the server says nothing for 45 s, the form says so and lets the player retry.
+  // (If the answer does turn up later, it's still used.)
+  var SLOW_MS = 45000;
+  function server(fn, args, ok, fail) {
+    var done = false;
+    var t = setTimeout(function () {
+      if (done) return;
+      if (fail) fail(new Error('The server is taking too long to answer. Please try again in a moment.'));
+    }, SLOW_MS);
+    var r = google.script.run
+      .withSuccessHandler(function (v) { done = true; clearTimeout(t); if (ok) ok(v); })
+      .withFailureHandler(function (e) { if (done) return; done = true; clearTimeout(t); if (fail) fail(e); });
+    // A function the server doesn't have means the deployed version is missing the newest Leaderboard.gs
+    var problem = null;
+    if (typeof r[fn] !== 'function') problem = 'The arcade needs an update (the server has no ' + fn + '). Please tell ' + HELP_CONTACT + '.';
+    else { try { r[fn].apply(r, args); } catch (err) { problem = (err && err.message) || String(err); } }
+    if (problem) { done = true; clearTimeout(t); if (fail) setTimeout(function () { fail(new Error(problem)); }, 0); }
+  }
+  function rawErr(e) { return (e && e.message ? e.message : String(e)).replace(/^(Exception|Error):\s*/, ''); }
+  function isAuthErr(e) { return /^AUTH:/.test(rawErr(e)); }
+  function errText(e) { return rawErr(e).replace(/^AUTH:\s*/, ''); }
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  function onReady(fn) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn); else fn(); }
+
+  var ICON = {
+    head: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="8.3" r="4.3"/><path d="M3.6 21.2c.5-4.6 4-7.6 8.4-7.6s7.9 3 8.4 7.6z"/></svg>',
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
+    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9"/><path d="M16 7l3 3"/><path d="M18.5 4.5l2 2"/></svg>',
+    swap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4L3 8l4 4"/><path d="M3 8h13"/><path d="M17 20l4-4-4-4"/><path d="M21 16H8"/></svg>',
+    out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M10 16l-4-4 4-4"/><path d="M6 12h10"/></svg>'
+  };
+
+  // ---------------------------------------------------------------- head button + menu
+  function mountHead(parent) {
+    var wrap = el('div', 'rga rga-headwrap');
+    var btn = el('button', 'rga-pill');
+    btn.type = 'button';
+    var label = el('span', 'rga-label');
+    label.appendChild(el('small', '', 'Playing as'));
+    var nm = el('b'); label.appendChild(nm);
+    var face = el('span', 'rga-head'); face.innerHTML = ICON.head;
+    btn.appendChild(label); btn.appendChild(face);
+    btn.setAttribute('aria-haspopup', 'menu'); btn.setAttribute('aria-expanded', 'false');
+    var menu = el('div', 'rga-menu'); menu.hidden = true; menu.setAttribute('role', 'menu');
+    var who = el('div', 'rga-who');                 // only shown when the sign-in name differs
+    var un = el('small'); who.appendChild(un);
+    menu.appendChild(who);
+    [['edit', 'Edit Player Name', editName], ['swap', 'Switch Player', switchPlayer], ['out', 'Sign Out', signOut]].forEach(function (it) {
+      var b = el('button', 'rga-item'); b.type = 'button'; b.setAttribute('role', 'menuitem');
+      b.innerHTML = ICON[it[0]]; b.appendChild(document.createTextNode(it[1]));
+      b.addEventListener('click', function () { close(); it[2](); });
+      menu.appendChild(b);
+    });
+    function close() { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = menu.hidden;
+      closeAllMenus();
+      if (open) { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); }
+    });
+    // Clicks and keys inside the menu must never reach the game underneath
+    ['pointerdown', 'mousedown', 'touchstart', 'click', 'keydown', 'keyup', 'keypress'].forEach(function (t) {
+      wrap.addEventListener(t, function (e) { e.stopPropagation(); });
+    });
+    wrap.appendChild(btn); wrap.appendChild(menu);
+    parent.appendChild(wrap);
+    var h = { wrap: wrap, btn: btn, menu: menu, nm: nm, un: un, who: who, close: close };
+    heads.push(h);
+    renderHeads();
+    return wrap;
+  }
+  function closeAllMenus() { heads.forEach(function (h) { h.close(); }); }
+  function renderHeads() {
+    heads.forEach(function (h) {
+      h.wrap.hidden = !session;
+      if (!session) { h.close(); return; }
+      h.nm.textContent = session.name || session.user || '…';
+      h.un.textContent = session.user && session.user !== session.name ? 'Signs in as "' + session.user + '"' : '';
+      h.who.hidden = !h.un.textContent;
+      h.btn.title = session.name ? 'Playing as ' + session.name : 'Player menu';
+      h.btn.setAttribute('aria-label', h.btn.title);
+    });
+  }
+  document.addEventListener('click', closeAllMenus);
+
+  // ---------------------------------------------------------------- the "Who's playing?" screen
+  // No passwords: start typing your name, then tap it in the list (or make a new player).
+  var M = null, mode = null, switching = false, roster = null, rosterLoading = false, rosterErr = '', hi = 0, rows = [];
+  function pu(p) { return String(p.u || ''); }          // user name ('' for an older player not yet claimed)
+  function pkey(p) { return p.u ? 'u|' + p.u.toLowerCase() : 'k|' + p.k; }
+  function buildModal() {
+    if (M) return M;
+    var modal = el('div', 'rga rga-modal'); modal.hidden = true;
+    modal.setAttribute('role', 'dialog'); modal.setAttribute('aria-modal', 'true'); modal.setAttribute('aria-labelledby', 'rgaTitle');
+    modal.innerHTML =
+      '<form class="rga-card" novalidate autocomplete="off">' +
+        '<div class="rga-brand"><div class="rga-logo">RG</div><div><div class="rga-title" id="rgaTitle">Ruben Games</div><div class="rga-sub"></div></div></div>' +
+        '<label class="rga-field rga-f-user"><span>Type your name</span><div class="rga-inp"><input name="who" autocomplete="off" autocapitalize="words" autocorrect="off" spellcheck="false" maxlength="' + USER_MAX + '" placeholder="Start typing…"></div></label>' +
+        '<div class="rga-list" role="listbox"></div>' +
+        '<label class="rga-field rga-f-name"><span>Player name</span><div class="rga-inp"><input name="playername" autocomplete="off" autocapitalize="words" spellcheck="false" maxlength="24"></div><small></small></label>' +
+        '<div class="rga-err" role="alert"></div>' +
+        '<button type="submit" class="rga-go">Save</button>' +
+        '<button type="button" class="rga-cancel">Cancel</button>' +
+      '</form>';
+    var q = function (s) { return modal.querySelector(s); };
+    M = { modal: modal, form: q('form'), sub: q('.rga-sub'), fUser: q('.rga-f-user'), user: q('input[name=who]'), list: q('.rga-list'),
+          fName: q('.rga-f-name'), name: q('input[name=playername]'), nameHint: q('.rga-f-name small'),
+          err: q('.rga-err'), go: q('.rga-go'), cancel: q('.rga-cancel') };
+    M.cancel.addEventListener('click', closeModal);
+    M.form.addEventListener('submit', function (e) { e.preventDefault(); if (mode === 'rename') submitRename(); else if (rows[hi]) rows[hi].pick(); });
+    M.user.addEventListener('input', function () { hi = 0; M.err.textContent = ''; renderList(); });
+    M.user.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); hi = Math.min(rows.length - 1, hi + 1); paintHi(); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); hi = Math.max(0, hi - 1); paintHi(); }
+    });
+    // Keys typed here belong to the form, never to the game underneath
+    ['keydown', 'keyup', 'keypress'].forEach(function (t) {
+      modal.addEventListener(t, function (e) {
+        e.stopPropagation();
+        if (t === 'keydown' && e.key === 'Escape' && !M.cancel.hidden) closeModal();
+      });
+    });
+    ['pointerdown', 'mousedown', 'touchstart', 'click', 'wheel'].forEach(function (t) {
+      modal.addEventListener(t, function (e) { e.stopPropagation(); }, { passive: true });
+    });
+    document.body.appendChild(modal);
+    return M;
+  }
+  function loadRoster() {
+    if (!hasServer) { roster = roster || []; return; }
+    if (rosterLoading) return;
+    rosterLoading = true;
+    rosterErr = '';
+    server('authList', [], function (list) { rosterLoading = false; roster = Array.isArray(list) ? list : []; if (modalOpen() && mode === 'signin') renderList(); },
+      function (e) { rosterLoading = false; roster = null; rosterErr = errText(e) || 'Couldn\'t load the players.'; if (modalOpen() && mode === 'signin') renderList(); });
+  }
+  function cleanName(v) { return String(v || '').replace(/\s+/g, ' ').trim(); }
+  // Up to 10 players: names that start with what you typed first, then names that contain it.
+  // With nothing typed: players who've used this device, then everyone else.
+  function matches(typed) {
+    var all = roster || [], t = typed.toLowerCase(), out = [], seen = {};
+    function add(p) { var k = pkey(p); if (!seen[k] && out.length < 10) { seen[k] = 1; out.push(p); } }
+    if (!t) {
+      recent().forEach(function (u) { var p = all.filter(function (x) { return pu(x).toLowerCase() === String(u).toLowerCase(); })[0]; if (p) add(p); });
+      all.forEach(add);
+      return out;
+    }
+    function hit(p, fn) { return fn(pu(p).toLowerCase()) || fn(String(p.n || '').toLowerCase()); }
+    all.forEach(function (p) { if (hit(p, function (s) { return s.indexOf(t) === 0; })) add(p); });
+    all.forEach(function (p) { if (hit(p, function (s) { return s.indexOf(t) > 0; })) add(p); });
+    return out;
+  }
+  function renderList() {
+    var typed = cleanName(M.user.value);
+    M.list.innerHTML = ''; rows = [];
+    if (!roster && rosterErr) {
+      // The list didn't load: say so and offer a retry — never offer "New player" blind, or we'd make duplicates.
+      M.list.appendChild(el('div', 'rga-note rga-bad', 'Couldn\'t load the list of players. ' + rosterErr));
+      var rb = el('button', 'rga-row rga-retry'); rb.type = 'button';
+      rb.appendChild(el('span', 'rga-face', '↻')); var rt = el('span', 'rga-pick'); rt.appendChild(el('b', '', 'Try again')); rb.appendChild(rt);
+      var rrow = { el: rb, pick: function () { rosterErr = ''; renderList(); } };
+      rb.addEventListener('click', rrow.pick); M.list.appendChild(rb); rows.push(rrow); paintHi(); return;
+    }
+    if (!roster) { M.list.appendChild(el('div', 'rga-note', 'Loading players…')); loadRoster(); return; }
+    matches(typed).forEach(function (p) {
+      var b = el('button', 'rga-row'); b.type = 'button'; b.setAttribute('role', 'option');
+      b.appendChild(el('span', 'rga-face', (p.n || pu(p) || '?').charAt(0).toUpperCase()));
+      var tx = el('span', 'rga-pick'); tx.appendChild(el('b', '', p.n || pu(p)));
+      if (p.u && p.n && p.n.toLowerCase() !== p.u.toLowerCase()) tx.appendChild(el('small', '', p.u));
+      b.appendChild(tx);
+      var row = { el: b, pick: function () { signInAs(p.u || p.k); } };
+      b.addEventListener('click', row.pick);
+      M.list.appendChild(b); rows.push(row);
+    });
+    var tl = typed.toLowerCase();
+    var exact = typed && (roster || []).some(function (p) { return pu(p).toLowerCase() === tl || String(p.n || '').toLowerCase() === tl; });
+    if (typed.length >= 2 && !exact) {
+      var nb = el('button', 'rga-row rga-new'); nb.type = 'button';
+      nb.appendChild(el('span', 'rga-face', '+'));
+      var nt = el('span', 'rga-pick'); nt.appendChild(el('b', '', 'New player: ' + typed)); nt.appendChild(el('small', '', 'First time here? Tap to join'));
+      nb.appendChild(nt);
+      var nrow = { el: nb, pick: function () { createPlayer(typed); } };
+      nb.addEventListener('click', nrow.pick);
+      M.list.appendChild(nb); rows.push(nrow);
+    } else if (typed.length === 1 && !rows.length) M.list.appendChild(el('div', 'rga-note', 'Keep typing…'));
+    if (!rows.length && !typed) M.list.appendChild(el('div', 'rga-note', 'Type your name to join.'));
+    hi = Math.min(hi, Math.max(0, rows.length - 1));
+    paintHi();
+  }
+  function paintHi() { rows.forEach(function (r, i) { r.el.classList.toggle('hi', i === hi); }); }
+  function setBusy(text) { M.list.innerHTML = ''; rows = []; M.list.appendChild(el('div', 'rga-note', text)); M.user.disabled = true; }
+  function done(r) {
+    session = { token: r.token, name: r.name, user: r.user };
+    save(); addRecent(r.user); M.user.value = ''; M.user.disabled = false; closeModal(); emit('signin');
+  }
+  function oops(e) { M.user.disabled = false; renderList(); M.err.textContent = errText(e); }
+  function signInAs(u) { setBusy('Starting…'); server('authSignIn', [u], done, oops); }
+  function createPlayer(u) { setBusy('Making your player…'); roster = null; server('authSignUp', [u], done, oops); }
+
+  function show(m, opts) {
+    buildModal();
+    opts = opts || {};
+    if (opts.switching !== undefined) switching = opts.switching;
+    mode = m;
+    var rename = m === 'rename';
+    M.sub.textContent = rename ? 'Edit player name' : switching ? 'Switch player' : 'Who\'s playing?';
+    M.fUser.style.display = M.list.style.display = rename ? 'none' : '';
+    M.fName.style.display = M.go.style.display = rename ? '' : 'none';
+    M.err.className = 'rga-err'; M.err.textContent = '';
+    M.go.disabled = false; M.go.textContent = 'Save';
+    M.cancel.hidden = !(rename || switching);
+    if (rename) {
+      M.name.value = session ? session.name : '';
+      M.nameHint.textContent = 'This is the name on the leaderboards.';
+    } else {
+      M.user.value = ''; M.user.disabled = false; hi = 0;
+      roster = null; renderList();           // fresh list of players each time
+    }
+    M.modal.hidden = false;
+    closeAllMenus();
+    var f = rename ? M.name : M.user;
+    setTimeout(function () { try { f.focus(); if (rename) f.select(); } catch (e) {} }, 30);
+  }
+  function closeModal() { if (M) { M.modal.hidden = true; } mode = null; switching = false; }
+  function modalOpen() { return !!(M && !M.modal.hidden); }
+
+  function submitRename() {
+    M.err.textContent = '';
+    var nm = M.name.value.replace(/\s+/g, ' ').trim();
+    if (nm.length < 2) { M.err.textContent = 'Names need at least 2 characters.'; return; }
+    if (session && nm === session.name) { closeModal(); return; }
+    M.go.disabled = true; M.go.textContent = 'Saving…';
+    server('lbSetName', [session && session.token, nm], function (r) {
+      session.name = r.name; save(); closeModal(); emit('rename');
+    }, function (e) {
+      if (isAuthErr(e)) { closeModal(); expired(); return; }
+      M.go.disabled = false; M.go.textContent = 'Save'; M.err.textContent = errText(e);
+    });
+  }
+
+  // ---------------------------------------------------------------- menu actions
+  function editName() { if (session) show('rename'); }
+  function changePassword() {}
+  function switchPlayer() { show('signin', { switching: true }); }
+  function signOut() {
+    session = null; save(); emit('signout');
+    show('signin', { switching: false });
+  }
+  function expired() {
+    if (!session && modalOpen()) return;
+    session = null; save(); emit('signout');
+    show('signin', { switching: false });
+    M.err.textContent = 'Please sign in again.';
+  }
+
+  // While the sign-in screen is up, keys aimed at the page underneath (e.g. Space = Start) are swallowed.
+  ['keydown', 'keyup', 'keypress'].forEach(function (t) {
+    window.addEventListener(t, function (e) {
+      if (modalOpen() && !M.modal.contains(e.target)) {
+        e.stopImmediatePropagation(); e.preventDefault();
+        if (t === 'keydown') {
+          var first = [M.user, M.name].filter(function (i) { return i.offsetParent !== null; })[0];
+          try { if (first) first.focus(); } catch (err) {}
+        }
+      } else if (t === 'keydown' && e.key === 'Escape') closeAllMenus();
+    }, true);
+  });
+
+  // No storage available: carry the sign-in along when moving around the arcade.
+  document.addEventListener('click', function (e) {
+    if (store || !session || !BOOT.homeUrl) return;
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    var h = a.getAttribute('href') || '';
+    if (h.indexOf(BOOT.homeUrl) !== 0) return;
+    h = h.replace(/([?&])s=[^&#]*&?/, '$1').replace(/[?&]$/, '');
+    a.setAttribute('href', h + (h.indexOf('?') < 0 ? '?' : '&') + 's=' + encodeURIComponent(session.token));
+  }, true);
+
+  // ---------------------------------------------------------------- start up
+  onReady(function () {
+    if (!hasServer) return;
+    booted = true;
+    if (!session) { show('signin'); emit('boot'); return; }
+    emit('boot');
+    server('authMe', [session.token], function (r) {
+      if (!session) return;
+      var changed = r.name !== session.name || r.user !== session.user;
+      session.name = r.name; session.user = r.user; save();
+      if (changed) emit('rename');
+    }, function (e) { if (isAuthErr(e)) expired(); });
+  });
+
+  return {
+    available: !!hasServer,
+    token: function () { return session ? session.token : null; },
+    user: pub,
+    onUser: function (cb) { listeners.push(cb); if (booted) cb(pub(), 'boot'); },
+    mountHead: mountHead,
+    expired: expired,
+    isAuthError: isAuthErr,
+    signOut: signOut, switchPlayer: switchPlayer, editName: editName, changePassword: changePassword
+  };
+})();
+</script>
+
+<style>
+  .rlb { --lb-accent: #ffb347; --lb-text: #fff4e3; --lb-muted: #d9b48f; --lb-panel: rgba(40,18,6,0.55);
+         --lb-line: rgba(255,230,190,0.12); --lb-hi: rgba(255,179,71,0.16); --lb-hi2: rgba(255,179,71,0.34);
+         --lb-btn: rgba(255,244,227,0.12); --lb-btn-line: rgba(255,230,190,0.4); --lb-save: #ff9a3c; --lb-save-text: #3a1505;
+         --lb-err: #ffb199; color: var(--lb-text); }
+  .rlb-me { display: none; justify-content: center; margin: 0 0 14px; }
+  .rlb-me.on { display: flex; }
+  /* corner: true → the head button sits in the top-right corner of the start / end screen */
+  .rlb-me.rlb-corner { position: fixed; top: 12px; right: 14px; z-index: 12; margin: 0; }
+  .rlb-board { display: none; margin: 18px auto 0; width: min(460px, 100%); }
+  .rlb-board.on { display: block; }
+  .rlb-board h2 { font-weight: 700; color: var(--lb-accent); font-size: 22px; margin: 0 0 8px; letter-spacing: 0.3px; }
+  .rlb-board table { width: 100%; border-collapse: collapse; font-size: 16px; background: var(--lb-panel); border-radius: 12px; overflow: hidden; }
+  .rlb-board th { text-align: left; font-weight: 600; color: var(--lb-muted); font-size: 12.5px; text-transform: uppercase;
+                  letter-spacing: 0.6px; padding: 7px 10px; }
+  .rlb-board td { padding: 6px 10px; border-top: 1px solid var(--lb-line); text-align: left; }
+  .rlb-board .n { text-align: right; white-space: nowrap; }
+  .rlb-board td.rk { width: 2.2em; color: var(--lb-muted); }
+  .rlb-board td.who { max-width: 12em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rlb-board td.day { color: var(--lb-muted); font-size: 14px; white-space: nowrap; }
+  .rlb-board tr.mine td { background: var(--lb-hi); }
+  .rlb-board tr.latest td { background: var(--lb-hi2); }
+  .rlb-board .new { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 6px; background: var(--lb-save);
+                    color: var(--lb-save-text); font-size: 12px; font-weight: 700; vertical-align: 2px; }
+  .rlb-board .note { margin-top: 8px; font-size: 15px; min-height: 1.3em; }
+  .rlb-board .note.err { color: var(--lb-err); }
+  @media (max-width: 420px) { .rlb-board td.day, .rlb-board th.day { display: none; } }
+</style>
+<script>
+window.RubenLB = (function () {
+  'use strict';
+  var LEVEL_NAMES = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+
+  function create(o) {
+    var game = o.game, column = o.column || 'Score', level = o.level || 'easy';
+    var fmt = o.format || function (v) { return String(v); };
+    var meBox = o.meEl, box = o.boardEl;
+    var hasServer = typeof google !== 'undefined' && google.script && google.script.run;
+    var Auth = window.RubenAuth;
+    var runId = null, runPending = false, finalScore = null, runLevel = level, runToken = null, userKey = null;
+    var boards = {}, loading = {}, gen = 0, ready = !Auth;
+
+    meBox.classList.add('rlb', 'rlb-me', 'on'); box.classList.add('rlb', 'rlb-board');
+    if (o.corner) meBox.classList.add('rlb-corner');
+    if (Auth) Auth.mountHead(meBox);
+    function tok() { return Auth ? Auth.token() : null; }
+
+    function server(fn, args, ok, fail) {
+      var r = google.script.run.withSuccessHandler(ok).withFailureHandler(fail || function () {});
+      r[fn].apply(r, args);
+    }
+    function authFail(e) { if (Auth && Auth.isAuthError(e)) { Auth.expired(); return true; } return false; }
+    function errText(e) { return (e && e.message ? e.message : String(e)).replace(/^(Exception|Error):\s*/, '').replace(/^AUTH:\s*/, ''); }
+    function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+
+    function render(note, isErr) {
+      box.classList.add('on');
+      box.innerHTML = '';
+      box.appendChild(el('h2', '', '🏆 Top 10 · ' + LEVEL_NAMES[level]));
+      var b = boards[level];
+      if (b && b.rows.length) {
+        var tbl = el('table'), head = el('tr');
+        head.appendChild(el('th', '', '#')); head.appendChild(el('th', '', 'Player'));
+        head.appendChild(el('th', 'n', column)); head.appendChild(el('th', 'day', 'Date'));
+        tbl.appendChild(head);
+        b.rows.forEach(function (r, i) {
+          var tr = el('tr', r.latest ? 'latest' : r.mine ? 'mine' : '');
+          tr.appendChild(el('td', 'rk', String(i + 1)));
+          var who = el('td', 'who', r.name);
+          if (r.latest) who.appendChild(el('span', 'new', 'NEW'));
+          tr.appendChild(who);
+          tr.appendChild(el('td', 'n', fmt(r.score)));
+          tr.appendChild(el('td', 'day', r.day));
+          tbl.appendChild(tr);
+        });
+        box.appendChild(tbl);
+      } else if (b) {
+        box.appendChild(el('div', 'note', 'No ' + LEVEL_NAMES[level] + ' scores yet. Be the first!'));
+      }
+      var text = note;
+      if (!text && !b) text = 'Loading leaderboard…';
+      // The signed-in player's own best on this difficulty (from the database, so it follows them to any device)
+      if (!text && b && b.best !== null) {
+        text = (b.newBest ? '🎉 New personal best: ' : 'Your personal best: ') + fmt(b.best) + ' · Rank #' + b.rank + ' of ' + b.total;
+      }
+      if (text) box.appendChild(el('div', 'note' + (isErr ? ' err' : ''), text));
+    }
+
+    function fetchBoard(lv) {
+      if (loading[lv]) return;
+      loading[lv] = true;
+      var g = gen;
+      server('lbBoard', [tok(), game, lv], function (b) {
+        loading[lv] = false;
+        if (g !== gen) return;                                   // player changed meanwhile
+        boards[lv] = b;
+        if (lv === level) render();
+      }, function (e) { loading[lv] = false; if (g === gen && lv === level) render('Leaderboard unavailable: ' + errText(e), true); });
+    }
+
+    function submit() {
+      var f = finalScore, id = runId, t = runToken;
+      finalScore = null; runId = null;
+      var prev = boards[runLevel] ? boards[runLevel].best : undefined;
+      server('lbSubmitScore', [t, game, id, f.score, f.outcome], function (d) {
+        var b = d.board;
+        // New personal best: this score is now their best, and it beat (or is their first) earlier best
+        b.newBest = b.best !== null && Math.round(f.score) === b.best && (prev === null || (prev !== undefined && prev !== b.best));
+        boards[b.level] = b;
+        if (d.board.level === level) render();
+      }, function (e) { if (!authFail(e)) render(errText(e), true); });
+    }
+
+    // Load (or reload) the boards whenever the player signs in, switches, renames or signs out.
+    function reload(u, why) {
+      gen++; boards = {}; loading = {}; ready = true;
+      var key = u ? u.user : null;
+      if (why === 'rename' && key === userKey) { fetchBoard(level); render(); return; }
+      userKey = key;
+      render();
+      if (!u) { fetchBoard(level); return; }                    // signed out: the board still shows
+      var g = gen;
+      server('lbInit', [tok(), game, level], function (d) {
+        if (g !== gen) return;
+        boards[d.board.level] = d.board;
+        if (d.board.level === level) render();
+      }, function (e) { if (g === gen && !authFail(e)) render('Leaderboard unavailable: ' + errText(e), true); });
+    }
+    if (hasServer && Auth) Auth.onUser(reload);
+    else if (hasServer) { render(); fetchBoard(level); }
+
+    return {
+      available: !!hasServer,
+      /** Show the board for this difficulty (call whenever the player picks a level). */
+      setLevel: function (lv) {
+        level = lv;
+        if (!hasServer) return;
+        render();
+        if (!boards[lv] && ready) fetchBoard(lv);
+      },
+      /** Call when a game starts. */
+      beginRun: function () {
+        if (!hasServer) return;
+        runId = null; finalScore = null; runLevel = level; runToken = tok();
+        runPending = !!runToken;
+        if (!runToken) return;
+        server('lbStartRun', [runToken, game, runLevel], function (id) {
+          runId = id; runPending = false;
+          if (finalScore) submit();                         // game ended before the ticket arrived
+        }, function () { runPending = false; });
+      },
+      /** Call when a game ends, with the final score. */
+      finishRun: function (score, outcome) {
+        if (!hasServer) return;
+        finalScore = { score: score, outcome: outcome || '' };
+        level = runLevel;
+        render('Saving your score…');
+        if (runId) submit();
+        else if (!runPending) { finalScore = null; render('Your score could not be saved this time.', true); }
+      }
+    };
+  }
+  return { create: create };
+})();
+</script>
+
+</head>
+<body>
+<canvas id="game"></canvas>
+<canvas id="dash"></canvas>
+<div id="nav" hidden>
+  <div class="navTop"><span id="navIcon"></span><div><div id="navMain">Go straight</div><div id="navSub"></div></div></div>
+  <div id="navThen"></div>
+  <div id="navTo"></div>
+  <div id="tip"><span>Tip</span><i><b id="tipBar"></b></i><span id="tipVal">$0</span></div>
+</div>
+<div id="dropHint" hidden>🍕 Press Space to drop off the pizza!</div>
+<div id="hud" hidden>
+  <span class="pill" id="time">2:00</span>
+  <span class="pill" id="cash">💵 $0</span>
+  <button class="pill" id="sndHud" type="button" title="Sound on/off (M)">🔊</button>
+</div>
+<div id="joyZone"></div>
+<div id="joy"><i style="left:61px;top:4px">▲</i><i style="left:61px;bottom:4px">▼</i><i style="left:7px;top:58px">◀</i><i style="right:7px;top:58px">▶</i><div id="joyKnob"></div></div>
+<button id="dropBtn" type="button"><b>🍕</b>DROP</button>
+<div id="overlay">
+  <h1>Door Dasher</h1>
+  <p id="msg">Deliver hot pizzas all over town in <b>2 minutes</b>!<br>
+    Far-away homes pay more, and fast deliveries earn bigger <b>tips</b>.<br>
+    Bumping into <b>cars</b>, <b>bikes</b> or <b>dogs</b> costs you money.<br>
+    <span id="howto"><span class="keys">↑</span> go &nbsp;·&nbsp; <span class="keys">↓</span> slow down / back up &nbsp;·&nbsp;
+    <span class="keys">←</span> <span class="keys">→</span> steer<br>Follow the directions, stop in the yellow circle and press <span class="keys">Space</span> to drop off the pizza.</span></p>
+  <button id="sndBtn" type="button">🔊 Sound on</button>
+  <div class="diff" id="diff">
+    <button data-level="easy">Easy</button><button data-level="medium">Medium</button><button data-level="hard">Hard</button>
+  </div>
+  <p id="lvlNote"></p>
+  <div id="me"></div>
+  <button id="btn">Start</button>
+  <div id="lb"></div>
+  <a id="home" href="./" target="_top">← Back to the arcade</a>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- Tunables (world units: 8 units ≈ 1 metre) ----
+  var GAME_SECONDS = 120;
+  var N = 7;                     // intersections along each side of town (a 6 × 6 grid of blocks)
+  var SP = 420;                  // distance between intersections
+  var RW = 100, HALF = RW / 2;   // road width
+  var LANE = 25;                 // car lane: this far right of the road's centre line
+  var BIKE_LANE = 40;            // bikes ride close to the curb
+  var SIDE = 18;                 // sidewalk width
+  var WORLD = (N - 1) * SP;
+  var M = 8;                     // world units per metre (for the distances in the directions)
+  var CAR_L = 48, CAR_W = 24;
+  // Driving feel. Speeds are world units per second (8 units = 1 m; 260 ≈ 73 mph).
+  var MAX_SPEED = 260;
+  var ENGINE = 100;            // pull from a standstill; it fades as you speed up
+  var BRAKE = 140;             // firm braking
+  var ROLL = 10, DRAG = 0.00018;   // off the gas you coast: rolling resistance + air drag (slows gently, never a sudden stop)
+  var REV_MAX = 140;           // top speed in reverse
+  var STEER_RATE = 12;         // how quickly the wheel turns to full lock
+  var MIN_RADIUS = 26;         // tightest turn (at walking pace)
+  var GRIP = 240, GRIP_TOUCH = 290;   // most sideways pull the tires allow (a bit more with the phone buttons): faster = wider turns
+  var DELIVER_RADIUS = 62, DELIVER_SPEED = 170;   // drop-off circle size, and the most speed you can still toss the pizza at
+  var PENALTY = { car: 3, bike: 5, dog: 5, walker: 5 };   // dollars lost per bump
+  // Pay for one pizza: BASE_PAY + $1 for every PAY_METRES of driving. The tip is up to TIP_SHARE of that.
+  var BASE_PAY = 3, PAY_METRES = 25, TIP_SHARE = 0.5;
+  var LEVEL_KEY = 'doorDodgerLevel';
+  var LEVEL_NAMES = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+  //   cars / bikes / dogs : how many are around you      carSpeed / bikeSpeed : [slowest, fastest]
+  //   dart                : how often a dog runs into the street in front of you
+  //   tipWindow           : the tip runs out at this many times the "expected" delivery time
+  var LEVELS = {
+    easy:   { cars: 7,  bikes: 3, dogs: 3, carSpeed: [110, 150], bikeSpeed: [55, 75],  dart: 0.05, tipWindow: 2.4,
+              note: 'Light traffic and patient customers. Great for learning the streets!' },
+    medium: { cars: 13, bikes: 5, dogs: 5, carSpeed: [130, 180], bikeSpeed: [65, 90],  dart: 0.11, tipWindow: 1.9,
+              note: 'Busier streets, more bikes, and dogs that dash across the road.' },
+    hard:   { cars: 20, bikes: 8, dogs: 8, carSpeed: [150, 210], bikeSpeed: [75, 105], dart: 0.2,  tipWindow: 1.55,
+              note: 'Rush hour! Packed streets, darting dogs and very hungry customers.' }
+  };
+  var STREET_NAMES = ['Maple St', 'Oak St', 'Pine St', 'Cedar St', 'Elm St', 'Birch St', 'Aspen St'];
+  var AVE_NAMES = ['1st Ave', '2nd Ave', '3rd Ave', '4th Ave', '5th Ave', '6th Ave', '7th Ave'];
+  var DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+
+  var cv = document.getElementById('game');
+  var overlay = document.getElementById('overlay');
+  var msg = document.getElementById('msg');
+  var btn = document.getElementById('btn');
+  var hudTime = document.getElementById('time'), hudCash = document.getElementById('cash');
+  var hudBox = document.getElementById('hud');
+  var dropHint = document.getElementById('dropHint'), dropBtn = document.getElementById('dropBtn');
+  var navBox = document.getElementById('nav'), navIcon = document.getElementById('navIcon');
+  var navMain = document.getElementById('navMain'), navSub = document.getElementById('navSub');
+  var navThen = document.getElementById('navThen'), navTo = document.getElementById('navTo');
+  var tipBox = document.getElementById('tip'), tipBar = document.getElementById('tipBar'), tipVal = document.getElementById('tipVal');
+
+  var W = 0, H = 0, dpr = 1, ctlH = 0;
+  var state = 'title';               // title | playing | done
+  var level = loadLevel(), L = LEVELS[level];
+  var P = null, cam = { x: 0, y: 0, a: 0 };
+  var money = 0, deliveries = 0, tipsTotal = 0, bumpsTotal = 0;
+  var timeLeft = GAME_SECONDS, playT = 0, endedAt = 0, recycleT = 0, navT = 0, bonkT = 0, slowHintT = 0, shake = 0;
+  var order = null, nav = null;
+  var vehicles = [], dogs = [], fx = [], texts = [];
+  var keys = { gas: false, brake: false, left: false, right: false };
+
+  function loadLevel() {
+    try { var l = localStorage.getItem(LEVEL_KEY); return LEVELS[l] ? l : 'easy'; } catch (e) { return 'easy'; }
+  }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function dist(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
+  function angDiff(a, b) { var d = a - b; if (!isFinite(d)) return 0; d = ((d + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; return d; }
+  function seeded(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function money$(v) { return '$' + v; }
+
+  // =====================================================================
+  // Town: a grid of streets with houses on every block
+  // =====================================================================
+  var blocks = [], houses = [], shops = [], places = [], outerTrees = [], benches = [];
+  var PIZZA_BLOCK = [2, 2], PARK_BLOCK = [4, 3];
+  // Downtown: little market streets around the pizza shop. Parks: a pond, a playground and a gazebo.
+  var MARKET_BLOCKS = ['1,2', '3,2', '2,1', '2,3'];
+  var PARKS = { '4,3': 'pond', '0,5': 'play', '5,0': 'gazebo' };
+  var SHOP_NAMES = ['Rosie\'s Bakery', 'Main St Hardware', 'Book Nook', 'Scoops Ice Cream', 'Fresh Grocer', 'Corner Café',
+                    'Petal Florist', 'Toy Box', 'Sharp Barber', 'Family Pharmacy', 'Happy Paws Pets', 'Spoke Bike Shop',
+                    'Sunny Diner', 'Sew & So', 'Candy Jar', 'Green Thumb Garden', 'Village Music', 'Cozy Quilts',
+                    'Hilltop Bank', 'Post Office', 'Lucky Laundry', 'Art Supply', 'Sports Corner', 'Mountain Outfitters'];
+  var SHOP_COLORS = [['#b5533c', '#2f6f8f'], ['#3f6f5a', '#e3b04b'], ['#e6d3b3', '#8e3b46'], ['#4c5b8f', '#f2c14e'],
+                     ['#8e5a3c', '#2e8b57'], ['#d9c27a', '#7a3b6b'], ['#a33b3b', '#f4ede1'], ['#5d7f99', '#e36f4c']];
+  var HOUSE_COLORS = [['#f3d9b1', '#c0533d'], ['#cfe3f2', '#4f6d8f'], ['#f6e7a6', '#8a5a3c'], ['#e9c7d6', '#7c4a63'],
+                      ['#d5ead0', '#4d7a52'], ['#f1f1ec', '#5f6670'], ['#f7c99f', '#7a4b2e'], ['#d9d3f0', '#5d548c']];
+  (function buildTown() {
+    var rnd = seeded(20261107);
+    for (var bj = 0; bj < N - 1; bj++) for (var bi = 0; bi < N - 1; bi++) {
+      var b = { bi: bi, bj: bj, x0: bi * SP + HALF, y0: bj * SP + HALF, x1: (bi + 1) * SP - HALF, y1: (bj + 1) * SP - HALF,
+                type: 'homes', houses: [], trees: [] };
+      if (bi === PIZZA_BLOCK[0] && bj === PIZZA_BLOCK[1]) b.type = 'pizza';
+      var key = bi + ',' + bj;
+      if (PARKS[key]) { b.type = 'park'; b.park = PARKS[key]; }
+      if (MARKET_BLOCKS.indexOf(key) >= 0) b.type = 'market';
+      blocks.push(b);
+      var cxB = (b.x0 + b.x1) / 2, cyB = (b.y0 + b.y1) / 2;
+      if (b.type === 'park') {
+        // big shade trees, kept off the paths and away from the pond / playground / gazebo in the middle
+        for (var t = 0; t < 40 && b.trees.length < 12; t++) {
+          var tx = rand2(b.x0 + 45, b.x1 - 45), ty = rand2(b.y0 + 45, b.y1 - 45);
+          if (Math.hypot(tx - cxB, ty - cyB) < 100 || Math.abs(tx - cxB) < 22 || Math.abs(ty - cyB) < 22) continue;
+          if (b.trees.some(function (o) { return Math.hypot(o.x - tx, o.y - ty) < 55; })) continue;
+          b.trees.push({ x: tx, y: ty, r: rand2(24, 36), c: rnd() });
+        }
+        [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (d) {   // benches along the paths
+          benches.push({ x: cxB + d[0] * 70, y: cyB + d[1] * 14, rot: 0 }); benches.push({ x: cxB + d[0] * 14, y: cyB + d[1] * 70, rot: Math.PI / 2 });
+        });
+        continue;
+      }
+      if (b.type === 'market') {
+        // a row of three little shops on each of the two east–west streets, and a parking lot in between
+        ['N', 'S'].forEach(function (side) { for (var k2 = 0; k2 < 3; k2++) addShop(b, side, k2); });
+        [[b.x0 + 34, cyB - 30], [b.x0 + 34, cyB + 30], [b.x1 - 34, cyB - 30], [b.x1 - 34, cyB + 30]].forEach(function (c) {
+          b.trees.push({ x: c[0], y: c[1], r: rand2(18, 24), c: rnd() });
+        });
+        continue;
+      }
+      ['N', 'S', 'W', 'E'].forEach(function (side) {
+        if (b.type === 'pizza' && side === 'N') return;          // the pizza shop fronts Pine St
+        [125, 195].forEach(function (a, k) { addHouse(b, side, a, k); });
+      });
+      // back-yard trees in the middle of the block, plus a few on the corner lawns
+      var nT = 2 + Math.floor(rnd() * 3);
+      for (var q = 0; q < nT; q++) b.trees.push({ x: rand2(b.x0 + 118, b.x1 - 118), y: rand2(b.y0 + 118, b.y1 - 118), r: rand2(18, 30), c: rnd() });
+      [[b.x0 + 62, b.y0 + 62], [b.x1 - 62, b.y0 + 62], [b.x0 + 62, b.y1 - 62], [b.x1 - 62, b.y1 - 62]].forEach(function (c) {
+        if (rnd() < 0.6) b.trees.push({ x: c[0] + rand2(-8, 8), y: c[1] + rand2(-8, 8), r: rand2(16, 24), c: rnd() });
+      });
+    }
+    // trees around the edge of town
+    for (var e = 0; e < 140; e++) {
+      var side2 = Math.floor(rnd() * 4), along = rand2(-400, WORLD + 400), out = rand2(HALF + 40, HALF + 380);
+      var ox = side2 === 0 ? along : side2 === 1 ? along : side2 === 2 ? -out : WORLD + out;
+      var oy = side2 === 0 ? -out : side2 === 1 ? WORLD + out : along;
+      outerTrees.push({ x: ox, y: oy, r: rand2(20, 38), c: rnd() });
+    }
+    function rand2(a, b2) { return a + rnd() * (b2 - a); }
+    function addShop(b, side, k) {
+      var name = SHOP_NAMES[shops.length % SHOP_NAMES.length];
+      var h = { block: b, side: side, k: k, w: 68, d: 58, shop: true, name: name, colors: SHOP_COLORS[shops.length % SHOP_COLORS.length] };
+      h.x = b.x0 + 90 + k * 70;
+      if (side === 'N') { h.y = b.y0 + SIDE + 30; h.fx = 0; h.fy = -1; h.spot = { x: h.x, y: b.bj * SP + LANE }; h.street = { axis: 'h', line: b.bj, seg: b.bi, pos: h.x }; }
+      else { h.y = b.y1 - SIDE - 30; h.fx = 0; h.fy = 1; h.spot = { x: h.x, y: (b.bj + 1) * SP - LANE }; h.street = { axis: 'h', line: b.bj + 1, seg: b.bi, pos: h.x }; }
+      h.rot = Math.atan2(h.fx, -h.fy);
+      var num = (b.bi + 1) * 100 + 10 + k * 20 + (side === 'N' ? 1 : 2);
+      h.addr = name + ', ' + num + ' ' + STREET_NAMES[h.street.line];
+      shops.push(h);
+    }
+    function addHouse(b, side, a, k) {
+      var h = { block: b, side: side, k: k, w: 62, d: 52, colors: HOUSE_COLORS[Math.floor(rnd() * HOUSE_COLORS.length)] };
+      if (side === 'N') { h.x = b.x0 + a; h.y = b.y0 + 70; h.fx = 0; h.fy = -1; h.spot = { x: h.x, y: b.bj * SP + LANE };
+        h.street = { axis: 'h', line: b.bj, seg: b.bi, pos: h.x }; }
+      if (side === 'S') { h.x = b.x0 + a; h.y = b.y1 - 70; h.fx = 0; h.fy = 1; h.spot = { x: h.x, y: (b.bj + 1) * SP - LANE };
+        h.street = { axis: 'h', line: b.bj + 1, seg: b.bi, pos: h.x }; }
+      if (side === 'W') { h.x = b.x0 + 70; h.y = b.y0 + a; h.fx = -1; h.fy = 0; h.spot = { x: b.bi * SP + LANE, y: h.y };
+        h.street = { axis: 'v', line: b.bi, seg: b.bj, pos: h.y }; }
+      if (side === 'E') { h.x = b.x1 - 70; h.y = b.y0 + a; h.fx = 1; h.fy = 0; h.spot = { x: (b.bi + 1) * SP - LANE, y: h.y };
+        h.street = { axis: 'v', line: b.bi + 1, seg: b.bj, pos: h.y }; }
+      h.rot = Math.atan2(h.fx, -h.fy);
+      // Street numbers: 100s by block, odd on one side of the street and even on the other
+      var odd = side === 'N' || side === 'W';
+      var num = ((h.street.axis === 'h' ? b.bi : b.bj) + 1) * 100 + (k === 0 ? 10 : 30) + (odd ? 1 : 2);
+      h.addr = num + ' ' + (h.street.axis === 'h' ? STREET_NAMES[h.street.line] : AVE_NAMES[h.street.line]);
+      b.houses.push(h); houses.push(h);
+    }
+  })();
+  places = houses.concat(shops);          // anywhere a pizza can be ordered from
+  var pizzaBlock = blocks[PIZZA_BLOCK[1] * (N - 1) + PIZZA_BLOCK[0]];
+  var SHOP = { x: (pizzaBlock.x0 + pizzaBlock.x1) / 2, y: pizzaBlock.y0 + 62 };
+  function blockAt(bi, bj) { return bi >= 0 && bj >= 0 && bi < N - 1 && bj < N - 1 ? blocks[bj * (N - 1) + bi] : null; }
+
+  // ---- What you can drive over (slowly) and what you can't drive through ----
+  // Sidewalks and lawns are fine (they just slow you down). Houses, the pizza shop, tree trunks,
+  // light poles, sign posts, mailboxes, the pond and the fence around town are solid.
+  var BOUND = HALF + 160;                 // the fence: this far outside the outer streets
+  function frontPoint(h, offAlong, out) {  // a spot in front of a house (offAlong along the street, out toward it)
+    var ax = h.fy !== 0 ? 1 : 0, az = 1 - ax;
+    return { x: h.x + ax * offAlong + h.fx * (h.d / 2 + out), y: h.y + az * offAlong + h.fy * (h.d / 2 + out) };
+  }
+  var solids = [], solidGrid = {}, GRID = 120;
+  // How heavy things are compared with your car: light things barely slow you, heavy ones slow you a lot
+  var MASS = { mailbox: 0.12, bench: 0.18, sign: 0.2, lamp: 0.38, dog: 0.18, walker: 0.33, bike: 0.43, sedan: 0.8, suv: 1.0, van: 1.35 };
+  var lampObjs = [], signObjs = [], mailObjs = [], knockables = [];
+  function addSolid(o) {
+    var r = o.kind === 'rect' ? 0 : (o.r || Math.max(o.rx || 0, o.ry || 0));
+    var x0 = o.kind === 'rect' ? o.x0 : o.x - r, x1 = o.kind === 'rect' ? o.x1 : o.x + r;
+    var y0 = o.kind === 'rect' ? o.y0 : o.y - r, y1 = o.kind === 'rect' ? o.y1 : o.y + r;
+    for (var gx = Math.floor(x0 / GRID); gx <= Math.floor(x1 / GRID); gx++)
+      for (var gy = Math.floor(y0 / GRID); gy <= Math.floor(y1 / GRID); gy++) (solidGrid[gx + ',' + gy] = solidGrid[gx + ',' + gy] || []).push(o);
+    solids.push(o);
+  }
+  function solidsNear(x, y) {
+    var out = [], seen = [];
+    for (var gx = Math.floor((x - 30) / GRID); gx <= Math.floor((x + 30) / GRID); gx++)
+      for (var gy = Math.floor((y - 30) / GRID); gy <= Math.floor((y + 30) / GRID); gy++) {
+        var c = solidGrid[gx + ',' + gy]; if (!c) continue;
+        for (var k = 0; k < c.length; k++) if (seen.indexOf(c[k]) < 0) { seen.push(c[k]); out.push(c[k]); }
+      }
+    return out;
+  }
+  (function buildSolids() {
+    houses.forEach(function (h) {
+      var along = h.fy !== 0, hw = (along ? h.w : h.d) / 2, hd = (along ? h.d : h.w) / 2;
+      addSolid({ kind: 'rect', x0: h.x - hw, x1: h.x + hw, y0: h.y - hd, y1: h.y + hd, what: 'house' });
+      var mb = frontPoint(h, 30, 40), mo = { kind: 'circle', x: mb.x, y: mb.y, r: 2.5, what: 'mailbox', movable: true, parts: [] };
+      addSolid(mo); mailObjs.push(mo); knockables.push(mo);
+    });
+    addSolid({ kind: 'rect', x0: SHOP.x - 98, x1: SHOP.x + 98, y0: SHOP.y - 32, y1: SHOP.y + 48, what: 'shop' });
+    shops.forEach(function (h) { addSolid({ kind: 'rect', x0: h.x - h.w / 2, x1: h.x + h.w / 2, y0: h.y - h.d / 2, y1: h.y + h.d / 2, what: 'store' }); });
+    blocks.forEach(function (b) {
+      var cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+      if (b.park === 'gazebo') addSolid({ kind: 'circle', x: cx, y: cy, r: 30, what: 'gazebo' });
+      if (b.park === 'play') { addSolid({ kind: 'rect', x0: cx - 40, x1: cx - 10, y0: cy - 30, y1: cy + 30, what: 'slide' }); addSolid({ kind: 'rect', x0: cx + 10, x1: cx + 46, y0: cy - 26, y1: cy + 26, what: 'swings' }); }
+    });
+    benches.forEach(function (bn) { var bo = { kind: 'circle', x: bn.x, y: bn.y, r: 5, what: 'bench', movable: true, parts: [] }; bn.obj = bo; addSolid(bo); knockables.push(bo); });
+    outerTrees.forEach(function (t) { addSolid({ kind: 'circle', x: t.x, y: t.y, r: 4, what: 'tree' }); });
+    blocks.forEach(function (b) { b.trees.forEach(function (t) { addSolid({ kind: 'circle', x: t.x, y: t.y, r: 4, what: 'tree' }); }); });
+    for (var j = 0; j < N; j++) for (var i = 0; i < N; i++) {
+      var lo = { kind: 'circle', x: i * SP + (i > 0 ? -HALF - 7 : HALF + 7), y: j * SP + (j > 0 ? -HALF - 7 : HALF + 7), r: 2.2, what: 'lamp', movable: true, parts: [] };
+      var so = { kind: 'circle', x: i * SP + (i < N - 1 ? HALF + 7 : -HALF - 7), y: j * SP + (j < N - 1 ? HALF + 7 : -HALF - 7), r: 2, what: 'sign', movable: true, parts: [] };
+      addSolid(lo); addSolid(so); lampObjs.push(lo); signObjs.push(so); knockables.push(lo, so);
+    }
+    var pb = blockAt(PARK_BLOCK[0], PARK_BLOCK[1]);
+    addSolid({ kind: 'ellipse', x: (pb.x0 + pb.x1) / 2, y: (pb.y0 + pb.y1) / 2, rx: 72, ry: 54, what: 'pond' });
+  })();
+  // road | walk (sidewalk) | grass
+  function surfaceAt(x, y) {
+    if (x < -HALF || y < -HALF || x > WORLD + HALF || y > WORLD + HALF) return 'grass';
+    var b = blockAt(Math.floor(x / SP), Math.floor(y / SP));
+    if (!b || x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1) return 'road';
+    if (x < b.x0 + SIDE || x > b.x1 - SIDE || y < b.y0 + SIDE || y > b.y1 - SIDE) return 'walk';
+    return 'grass';
+  }
+  function groundAt(x, y) {   // sidewalks and lawns sit a curb's height above the street
+    var b = blockAt(Math.floor(x / SP), Math.floor(y / SP));
+    return b && x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1 ? 2.4 : 0;
+  }
+
+  // =====================================================================
+  // Directions: shortest route along the streets to the customer's curb
+  // =====================================================================
+  var UTURN_COST = 160;
+  function idx(i, j) { return j * N + i; }
+  function validNode(i, j) { return i >= 0 && j >= 0 && i < N && j < N; }
+  function routeTable(t) {          // distance from every intersection to the drop-off spot
+    var D = [], done = [], k;
+    for (k = 0; k < N * N; k++) { D.push(Infinity); done.push(false); }
+    var a = t.axis === 'h' ? [t.seg, t.line] : [t.line, t.seg], b = t.axis === 'h' ? [t.seg + 1, t.line] : [t.line, t.seg + 1];
+    D[idx(a[0], a[1])] = Math.abs(t.pos - t.seg * SP);
+    D[idx(b[0], b[1])] = Math.abs((t.seg + 1) * SP - t.pos);
+    for (;;) {
+      var best = -1;
+      for (k = 0; k < N * N; k++) if (!done[k] && D[k] < Infinity && (best < 0 || D[k] < D[best])) best = k;
+      if (best < 0) break;
+      done[best] = true;
+      var bi = best % N, bj = Math.floor(best / N);
+      for (var d = 0; d < 4; d++) {
+        var ni = bi + DIRS[d][0], nj = bj + DIRS[d][1];
+        if (validNode(ni, nj) && D[best] + SP < D[idx(ni, nj)]) D[idx(ni, nj)] = D[best] + SP;
+      }
+    }
+    return D;
+  }
+  function isTargetEdge(t, i, j, d) {
+    var i2 = i + d[0], j2 = j + d[1];
+    if (t.axis === 'h') return d[1] === 0 && j === t.line && Math.min(i, i2) === t.seg;
+    return d[0] === 0 && i === t.line && Math.min(j, j2) === t.seg;
+  }
+  // Which road is the car on, which way is it going, and which intersection comes next?
+  function roadState(x, y, a) {
+    var dx = Math.cos(a), dy = Math.sin(a);
+    var onH = Math.abs(y - Math.round(y / SP) * SP) <= HALF + 6, onV = Math.abs(x - Math.round(x / SP) * SP) <= HALF + 6;
+    var horiz = onH && !onV ? true : onV && !onH ? false : Math.abs(dx) >= Math.abs(dy);
+    var d = horiz ? [dx >= 0 ? 1 : -1, 0] : [0, dy >= 0 ? 1 : -1];
+    var along = horiz ? x : y, line = clamp(Math.round((horiz ? y : x) / SP), 0, N - 1), sgn = d[0] + d[1];
+    var k = sgn > 0 ? Math.floor((along - 5) / SP) + 1 : Math.ceil((along + 5) / SP) - 1;
+    return { horiz: horiz, d: d, along: along, line: line, sgn: sgn, k: k };
+  }
+  function turnType(din, dout) {
+    if (din[0] === dout[0] && din[1] === dout[1]) return 'straight';
+    if (din[0] === -dout[0] && din[1] === -dout[1]) return 'uturn';
+    return (din[1] === dout[0] && -din[0] === dout[1]) ? 'left' : 'right';   // left of (dx,dy) is (dy,-dx) on screen
+  }
+  function sideOf(d, h) {           // is the house on the driver's left or right?
+    var rx = -d[1], ry = d[0];
+    return (h.x - h.spot.x) * rx + (h.y - h.spot.y) * ry > 0 ? 'right' : 'left';
+  }
+  // Returns the list of upcoming moves: [{type: straight|left|right|uturn|arrive, dist, side}]
+  function planRoute(x, y, a, o) {
+    var t = o.house.street, D = o.D, R = roadState(x, y, a);
+    function node(k) { return R.horiz ? [k, R.line] : [R.line, k]; }
+    function nodeCost(k) { if (k < 0 || k >= N) return Infinity; var n = node(k); return Math.abs(k * SP - R.along) + D[idx(n[0], n[1])]; }
+    var kN = R.k, kB = kN - R.sgn;
+    var onLine = (t.axis === 'h') === R.horiz && t.line === R.line;
+    var segLo = Math.min(kN, kB);
+    var spotHere = onLine && t.seg === segLo && segLo >= 0 && segLo < N - 1;
+    var ahead = nodeCost(kN), back = nodeCost(kB) + UTURN_COST, arriveHere = false;
+    if (spotHere) {
+      var rel = (t.pos - R.along) * R.sgn;
+      if (rel >= -12) { if (Math.abs(rel) <= ahead) { ahead = Math.abs(rel); arriveHere = true; } }
+      else back = Math.min(back, -rel + UTURN_COST);
+    }
+    if (back < ahead - 1) return { cost: back, moves: [{ type: 'uturn', dist: 0 }] };
+    if (arriveHere) return { cost: ahead, moves: [{ type: 'arrive', dist: ahead, side: sideOf(R.d, o.house) }] };
+    var moves = [], din = R.d, n = node(kN), acc = Math.abs(kN * SP - R.along);
+    if (kN < 0 || kN >= N) return { cost: back, moves: [{ type: 'uturn', dist: 0 }] };
+    for (var step = 0; step < 16; step++) {
+      var bestD = null, bestC = Infinity;
+      for (var q = 0; q < 4; q++) {
+        var d2 = DIRS[q], ni = n[0] + d2[0], nj = n[1] + d2[1];
+        if (!validNode(ni, nj)) continue;
+        var c = isTargetEdge(t, n[0], n[1], d2) ? Math.abs(t.pos - (t.axis === 'h' ? n[0] : n[1]) * SP) : SP + D[idx(ni, nj)];
+        if (d2[0] === -din[0] && d2[1] === -din[1]) c += UTURN_COST;
+        if (c < bestC - 0.5) { bestC = c; bestD = d2; }
+      }
+      moves.push({ type: turnType(din, bestD), dist: acc });
+      if (isTargetEdge(t, n[0], n[1], bestD)) {
+        moves.push({ type: 'arrive', dist: acc + Math.abs(t.pos - (t.axis === 'h' ? n[0] : n[1]) * SP), side: sideOf(bestD, o.house) });
+        break;
+      }
+      n = [n[0] + bestD[0], n[1] + bestD[1]]; din = bestD; acc += SP;
+    }
+    return { cost: ahead, moves: moves };
+  }
+  function routeCost(x, y, a, o) { return planRoute(x, y, a, o).cost; }
+
+  var ICONS = (function () {
+    var s = '<svg viewBox="0 0 52 52"><rect width="52" height="52" rx="12" fill="#fff"/>';
+    var st = ' fill="none" stroke="#1f6a3a" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"';
+    var head = ' fill="#1f6a3a"';
+    return {
+      straight: s + '<path d="M26 44 V14"' + st + '/><path d="M15 20 L26 7 L37 20Z"' + head + '/></svg>',
+      left: s + '<path d="M34 45 V28 Q34 21 27 21 H16"' + st + '/><path d="M20 10 L7 21 L20 32Z"' + head + '/></svg>',
+      right: s + '<path d="M18 45 V28 Q18 21 25 21 H36"' + st + '/><path d="M32 10 L45 21 L32 32Z"' + head + '/></svg>',
+      uturn: s + '<path d="M34 45 V22 Q34 11 24 11 Q15 11 15 22 V30"' + st + '/><path d="M6 27 L15 40 L24 27Z"' + head + '/></svg>',
+      arrive: s + '<path d="M11 26 L26 13 L41 26 V42 H11Z" fill="#d23a2a"/><rect x="22" y="31" width="8" height="11" fill="#fff"/></svg>'
+    };
+  })();
+  function metres(u) { var m = u / M; return m < 3 ? 'now' : 'in ' + (m < 100 ? Math.max(5, Math.round(m / 5) * 5) : Math.round(m / 10) * 10) + ' m'; }
+  var lastNavKey = '';
+  function updateNav() {
+    if (!order) return;
+    nav = planRoute(P.x, P.y, P.a, order);
+    var m = nav.moves, first = m[0], main, sub, then = '', icon;
+    if (first.type === 'uturn') { icon = 'uturn'; main = 'Turn around'; sub = 'You\'re heading the wrong way'; }
+    else if (first.type === 'arrive') {
+      icon = 'arrive'; main = 'House on your ' + first.side; sub = P.inCircle ? (touchOn ? 'In the circle! Tap DROP' : 'In the circle! Press Space') : metres(first.dist) + ', stop in the circle';
+    } else {
+      icon = first.type; main = first.type === 'straight' ? 'Go straight' : 'Turn ' + first.type; sub = metres(first.dist);
+      var nxt = m[1];
+      if (nxt) then = nxt.type === 'arrive' ? 'Then the house is on your ' + nxt.side
+        : 'Then ' + (nxt.type === 'straight' ? 'go straight' : 'turn ' + nxt.type) + ' ' + metres(nxt.dist - first.dist).replace('in ', 'after ');
+    }
+    var key = icon + '|' + main + '|' + sub + '|' + then;
+    if (key !== lastNavKey) {
+      lastNavKey = key;
+      navIcon.innerHTML = ICONS[icon]; navMain.textContent = main; navSub.textContent = sub; navThen.textContent = then;
+    }
+  }
+
+  // =====================================================================
+  // Orders, pay and tips
+  // =====================================================================
+  function newOrder() {
+    var best = null;
+    for (var tries = 0; tries < 30; tries++) {
+      var h = pick(places);
+      if (order && h === order.house) continue;
+      var o = { house: h, D: routeTable(h.street) };
+      o.len = routeCost(P.x, P.y, P.a, o);
+      if (o.len < SP * 1.3) continue;
+      if (!best) best = o;
+      if (tries < 20 && planRoute(P.x, P.y, P.a, o).moves[0].type === 'uturn') continue;   // prefer homes you don't have to turn around for
+      best = o; break;
+    }
+    if (!best) { best = { house: pick(places) }; best.D = routeTable(best.house.street); best.len = routeCost(P.x, P.y, P.a, best); }
+    best.fare = BASE_PAY + Math.round(best.len / M / PAY_METRES);
+    best.maxTip = Math.max(1, Math.round(best.fare * TIP_SHARE));
+    best.expected = best.len / 150 + 3;             // seconds a good driver needs (you have to slow for corners)
+    best.t0 = playT;
+    order = best;
+    navTo.innerHTML = '';
+    navTo.appendChild(document.createTextNode('🍕 Deliver to '));
+    var bb = document.createElement('b'); bb.textContent = order.house.addr; navTo.appendChild(bb);
+    navTo.appendChild(document.createTextNode(' · pays ' + money$(order.fare)));
+    lastNavKey = ''; updateNav(); updateTip();
+  }
+  function currentTip() {
+    if (!order) return 0;
+    var t = playT - order.t0, T = order.expected;
+    var f = t <= T ? 1 : clamp(1 - (t - T) / ((L.tipWindow - 1) * T), 0, 1);
+    return { amount: Math.round(order.maxTip * f), frac: f };
+  }
+  function updateTip() {
+    var tp = currentTip();
+    tipVal.textContent = money$(tp.amount);
+    tipBar.style.width = Math.round(tp.frac * 100) + '%';
+    tipBox.className = tp.frac <= 0 ? 'gone' : tp.frac < 0.5 ? 'low' : '';
+  }
+  function deliver() {
+    var tp = currentTip(), h = order.house;
+    var earned = order.fare + tp.amount;
+    money += earned; tipsTotal += tp.amount; deliveries++;
+    fx.push({ type: 'box', x0: P.x, y0: P.y, x1: h.x + h.fx * -28, y1: h.y + h.fy * -28, t: 0, dur: 0.55 });
+    addText('+' + money$(order.fare) + (tp.amount > 0 ? '  ·  tip +' + money$(tp.amount) : '  ·  no tip :('), P.x, P.y, '#1f7a3a', 0);
+    pulse(hudCash, 'pop');
+    if (touchOn && navigator.vibrate) { try { navigator.vibrate([20, 40, 20]); } catch (e) {} }
+    newOrder();
+    updateHud();
+  }
+  // =====================================================================
+  // Sounds: made on the fly with the Web Audio API (no sound files), plus the browser's own voice for "Hey!"
+  // =====================================================================
+  var SOUND_KEY = 'doorDasherSound', soundOn = true, actx = null;
+  try { soundOn = localStorage.getItem(SOUND_KEY) !== 'off'; } catch (e) {}
+  function audio() {
+    if (!soundOn) return null;
+    if (!actx) { var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; try { actx = new AC(); } catch (e) { return null; } }
+    if (actx.state === 'suspended') actx.resume();
+    return actx;
+  }
+  function volAt(x, y) { return P ? clamp(1 - dist(x, y, P.x, P.y) / 700, 0.12, 1) : 1; }
+  function honk(vol, beeps) {        // a car horn: two slightly out-of-tune notes, like a real horn
+    var a = audio(); if (!a) return;
+    var t0 = a.currentTime + 0.01, len = beeps > 1 ? 0.2 : 0.42;
+    for (var b = 0; b < (beeps || 1); b++) {
+      var t = t0 + b * 0.3, out = a.createGain(), lp = a.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 1700; lp.connect(out); out.connect(a.destination);
+      out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(0.2 * vol, t + 0.02);
+      out.gain.setValueAtTime(0.2 * vol, t + len - 0.05); out.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      [415, 523].forEach(function (f) {
+        var o = a.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f * (0.985 + Math.random() * 0.03);
+        o.connect(lp); o.start(t); o.stop(t + len + 0.02);
+      });
+    }
+  }
+  function bell(vol) {               // "ring-ring": a bright metal bell struck twice
+    var a = audio(); if (!a) return;
+    var t0 = a.currentTime + 0.01;
+    for (var r = 0; r < 2; r++) {
+      var t = t0 + r * 0.17;
+      [[2350, 0.5], [3190, 0.28], [4420, 0.18], [6150, 0.08]].forEach(function (p) {
+        var o = a.createOscillator(), g = a.createGain();
+        o.type = 'sine'; o.frequency.value = p[0]; o.connect(g); g.connect(a.destination);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16 * vol * p[1] * 2, t + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.85);
+        o.start(t); o.stop(t + 0.9);
+      });
+    }
+  }
+  function thud(vol, size) {         // something getting knocked flat: a short crunchy thump
+    var a = audio(); if (!a) return;
+    var t = a.currentTime + 0.005, len = 0.25 + size * 0.4, n = Math.floor(a.sampleRate * len);
+    var buf = a.createBuffer(1, n, a.sampleRate), ch = buf.getChannelData(0);
+    for (var i = 0; i < n; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    var src = a.createBufferSource(), lp = a.createBiquadFilter(), g = a.createGain();
+    src.buffer = buf; lp.type = 'lowpass'; lp.frequency.value = 500 + (1 - size) * 1500;
+    g.gain.value = 0.5 * vol; src.connect(lp); lp.connect(g); g.connect(a.destination); src.start(t);
+    var o = a.createOscillator(), og = a.createGain();   // a metal "clang" ring for poles
+    o.type = 'triangle'; o.frequency.value = size > 0.3 ? 220 : 520; o.connect(og); og.connect(a.destination);
+    og.gain.setValueAtTime(0.12 * vol, t); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.6); o.start(t); o.stop(t + 0.65);
+  }
+  function hey() {                   // a person shouting "Hey!" (the browser's built-in voice)
+    if (!soundOn || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return;
+    try {
+      var u = new SpeechSynthesisUtterance('Hey!');
+      u.rate = rand(1.0, 1.25); u.pitch = rand(0.7, 1.7); u.volume = 1;
+      var vs = window.speechSynthesis.getVoices().filter(function (v) { return /^en/i.test(v.lang); });
+      if (vs.length) u.voice = pick(vs);
+      window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+  function setSound(on) {
+    soundOn = on;
+    try { localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch (e) {}
+    var a = document.getElementById('sndBtn'), b = document.getElementById('sndHud');
+    if (a) a.textContent = on ? '🔊 Sound on' : '🔇 Sound off';
+    if (b) b.textContent = on ? '🔊' : '🔇';
+    if (!on && window.speechSynthesis) try { window.speechSynthesis.cancel(); } catch (e) {}
+    if (on && actx) audio();
+  }
+
+  function penalty(kind, x, y) {
+    var p = PENALTY[kind], lost = Math.min(p, money);
+    money -= lost; bumpsTotal += lost;
+    addText('-' + money$(p), x, y, '#d23a2a', 0);
+    pulse(hudCash, 'ouch');
+    shake = 0.25;
+    if (touchOn && navigator.vibrate) { try { navigator.vibrate(60); } catch (e) {} }
+    updateHud();
+  }
+  function pulse(el, cls) { el.classList.remove('pop', 'ouch'); void el.offsetWidth; el.classList.add(cls); }
+  function addText(text, x, y, color, delay) { texts.push({ text: text, x: x, y: y, color: color, t: -(delay || 0), life: 1.3 }); }
+
+  // =====================================================================
+  // Traffic: cars and bikes follow the lanes and turn at corners
+  // =====================================================================
+  var CAR_COLORS = ['#3d7cc9', '#2e9c6a', '#e0b23a', '#8a59c2', '#4f5b66', '#e47b2f', '#1f9fb0', '#b23b55', '#f2f2ee', '#2a2d33'];
+  var JERSEYS = ['#ff6b6b', '#3fa7f5', '#ffd23f', '#7ad151', '#c77dff', '#ff9f43'];
+  var DOG_COLORS = [['#a86a3c', '#6e4122'], ['#2b2522', '#141110'], ['#e3b867', '#a87b35'], ['#f1ece4', '#7a6a5a'], ['#7a7f87', '#4a4e54']];
+  function rightOf(d) { return [-d[1], d[0]]; }
+  function edgeStart(i, j, d, off) { var r = rightOf(d); return { x: i * SP + d[0] * HALF + r[0] * off, y: j * SP + d[1] * HALF + r[1] * off }; }
+  function edgeEnd(i, j, d, off) { var r = rightOf(d), bi = i + d[0], bj = j + d[1];
+    return { x: bi * SP - d[0] * HALF + r[0] * off, y: bj * SP - d[1] * HALF + r[1] * off }; }
+  function chooseTurn(v) {
+    var bi = v.i + v.d[0], bj = v.j + v.d[1], opts = [];
+    for (var q = 0; q < 4; q++) {
+      var d2 = DIRS[q];
+      if (d2[0] === -v.d[0] && d2[1] === -v.d[1]) continue;
+      if (!validNode(bi + d2[0], bj + d2[1])) continue;
+      opts.push(d2);
+      if (d2[0] === v.d[0] && d2[1] === v.d[1]) opts.push(d2);   // going straight is a bit more likely
+    }
+    return pick(opts);
+  }
+  function setEdge(v, s) {
+    v.phase = 'edge'; v.p0 = edgeStart(v.i, v.j, v.d, v.off); v.p1 = edgeEnd(v.i, v.j, v.d, v.off); v.c = null;
+    v.len = dist(v.p0.x, v.p0.y, v.p1.x, v.p1.y); v.s = s || 0; v.next = chooseTurn(v);
+  }
+  function setTurn(v, s) {
+    var bi = v.i + v.d[0], bj = v.j + v.d[1], d2 = v.next;
+    v.phase = 'turn'; v.p0 = edgeEnd(v.i, v.j, v.d, v.off); v.p1 = edgeStart(bi, bj, d2, v.off);
+    if (d2[0] === v.d[0] && d2[1] === v.d[1]) { v.c = null; v.len = dist(v.p0.x, v.p0.y, v.p1.x, v.p1.y); }
+    else {
+      var k = (v.p1.x - v.p0.x) * v.d[0] + (v.p1.y - v.p0.y) * v.d[1];
+      v.c = { x: v.p0.x + v.d[0] * k, y: v.p0.y + v.d[1] * k };
+      var len = 0, px = v.p0.x, py = v.p0.y;
+      for (var q = 1; q <= 10; q++) { var pt = bez(v, q / 10); len += dist(px, py, pt.x, pt.y); px = pt.x; py = pt.y; }
+      v.len = len;
+    }
+    v.ni = bi; v.nj = bj; v.s = s || 0;
+  }
+  function bez(v, t) {
+    var u = 1 - t;
+    return { x: u * u * v.p0.x + 2 * u * t * v.c.x + t * t * v.p1.x, y: u * u * v.p0.y + 2 * u * t * v.c.y + t * t * v.p1.y };
+  }
+  function placeVehicle(v) {
+    var t = clamp(v.s / v.len, 0, 1), p, tx, ty;
+    if (v.c) {
+      p = bez(v, t); var u = 1 - t;
+      tx = 2 * u * (v.c.x - v.p0.x) + 2 * t * (v.p1.x - v.c.x); ty = 2 * u * (v.c.y - v.p0.y) + 2 * t * (v.p1.y - v.c.y);
+    } else { p = { x: v.p0.x + (v.p1.x - v.p0.x) * t, y: v.p0.y + (v.p1.y - v.p0.y) * t }; tx = v.p1.x - v.p0.x; ty = v.p1.y - v.p0.y; }
+    v.x = p.x + (v.ox || 0); v.y = p.y + (v.oy || 0); v.a = Math.atan2(ty, tx);
+  }
+  function makeVehicle(kind) {
+    var bike = kind === 'bike';
+    return { kind: kind, off: bike ? BIKE_LANE : LANE, speed: 0, max: bike ? rand(L.bikeSpeed[0], L.bikeSpeed[1]) : rand(L.carSpeed[0], L.carSpeed[1]),
+             color: bike ? pick(JERSEYS) : pick(CAR_COLORS), helmet: pick(['#ffffff', '#222', '#ff6b6b', '#3fa7f5']),
+             len: 0, stopT: 0, waitT: 0, ghostT: 0, fallT: 0, hitCD: 0, honkT: 0, brakeLight: false,
+             carLen: bike ? 26 : rand(44, 52), pedal: Math.random() * 6, type: bike ? '' : pick(['sedan', 'sedan', 'sedan', 'suv', 'suv', 'van']) };
+  }
+  // Put a vehicle on a random lane near the player (but out of sight once the game is running)
+  function spawnVehicle(v, minD, maxD, hidden) {
+    for (var tries = 0; tries < 40; tries++) {
+      var i = Math.floor(Math.random() * N), j = Math.floor(Math.random() * N), d = pick(DIRS);
+      if (!validNode(i + d[0], j + d[1])) continue;
+      v.i = i; v.j = j; v.d = d; setEdge(v, 0); v.s = rand(0, v.len); placeVehicle(v);
+      var pd = dist(v.x, v.y, P.x, P.y);
+      if (pd < minD || pd > maxD) continue;
+      if (hidden && !outOfSight(v.x, v.y)) continue;
+      var clash = false;
+      for (var q = 0; q < vehicles.length; q++) { var o = vehicles[q]; if (o !== v && o.x !== undefined && dist(o.x, o.y, v.x, v.y) < 80) { clash = true; break; } }
+      if (clash) continue;
+      v.speed = v.max * 0.8; v.stopT = v.fallT = v.waitT = v.ghostT = 0; v.ox = v.oy = v.svx = v.svy = 0;
+      placeVehicle(v);
+      return true;
+    }
+    return false;
+  }
+  function updateVehicle(v, dt) {
+    v.hitCD = Math.max(0, v.hitCD - dt); v.honkT = Math.max(0, v.honkT - dt);
+    stepShove(v, dt, 45);
+    if (v.kind === 'bike' && state === 'playing' && v.fallT <= 0) {   // a cyclist rings the bell when you come up close behind
+      v.bellT = Math.max(0, (v.bellT || 0) - dt);
+      var bdx = P.x - v.x, bdy = P.y - v.y, bd = Math.hypot(bdx, bdy);
+      var behind = -(bdx * Math.cos(v.a) + bdy * Math.sin(v.a));
+      if (v.bellT <= 0 && bd < 95 && behind > 20 && P.v > v.speed + 15) { v.bellT = 5; bell(volAt(v.x, v.y)); addText('Ring ring!', v.x, v.y, '#3a2216', 0); }
+    }
+    if (v.fallT > 0) { v.fallT -= dt; v.speed = 0; placeVehicle(v); return; }
+    var target = v.max;
+    if (v.stopT > 0) { v.stopT -= dt; target = 0; }
+    var turning = v.phase === 'turn' && v.c;
+    var curvyNext = v.phase === 'edge' && !(v.next[0] === v.d[0] && v.next[1] === v.d[1]);
+    var slowTurn = v.kind === 'bike' ? v.max : Math.min(v.max, 95);
+    if (turning || (curvyNext && v.len - v.s < 70)) target = Math.min(target, slowTurn);
+    // Look ahead and slow down for anything in the lane
+    var ca = Math.cos(v.a), sa = Math.sin(v.a), look = 45 + v.speed * 0.75, nearest = Infinity, blockedByPlayer = false;
+    function check(ox, oy, rad, isPlayer) {
+      var rx = ox - v.x, ry = oy - v.y, f = rx * ca + ry * sa;
+      if (f <= 0 || f > look + rad) return;
+      var l = Math.abs(-rx * sa + ry * ca);
+      if (l < 14 + rad && f < nearest) { nearest = f - rad; blockedByPlayer = isPlayer; }
+    }
+    if (state === 'playing' || state === 'done') check(P.x, P.y, 20, true);
+    if (v.ghostT <= 0) for (var q = 0; q < vehicles.length; q++) { var o = vehicles[q]; if (o !== v) check(o.x, o.y, o.kind === 'bike' ? 8 : 16, false); }
+    for (var g = 0; g < dogs.length; g++) if (dogs[g].inRoad) check(dogs[g].x, dogs[g].y, 8, false);
+    if (nearest < Infinity) target = Math.min(target, v.max * clamp((nearest - 26) / Math.max(1, look - 26), 0, 1));
+    v.ghostT = Math.max(0, v.ghostT - dt);
+    if (v.speed < 4 && target < 4 && v.stopT <= 0) {
+      v.waitT += dt;
+      if (blockedByPlayer && v.waitT > 1.6 && v.honkT <= 0 && v.kind === 'car') { v.honkT = 4; addText('Beep!', v.x, v.y, '#5a5f66', 0); honk(volAt(v.x, v.y) * 0.8, 2); }
+      if (!blockedByPlayer && v.waitT > 2.2) { v.ghostT = 1.6; v.waitT = 0; }   // untangle traffic jams
+    } else v.waitT = 0;
+    var acc = target > v.speed ? (v.kind === 'bike' ? 60 : 120) : 380;
+    v.speed += clamp(target - v.speed, -acc * dt, acc * dt);
+    v.brakeLight = target < v.speed - 5 || v.speed < 2;
+    v.s += v.speed * dt;
+    v.pedal += v.speed * dt * 0.12;
+    for (var guard = 0; v.s >= v.len && guard < 4; guard++) {
+      var extra = v.s - v.len;
+      if (v.phase === 'edge') setTurn(v, extra);
+      else { v.i = v.ni; v.j = v.nj; v.d = v.next; setEdge(v, extra); }
+    }
+    placeVehicle(v);
+  }
+
+  // =====================================================================
+  // Dogs: they trot along the sidewalks, and sometimes dash across the street
+  // =====================================================================
+  function ring(b) { return { X0: b.x0 + 9, Y0: b.y0 + 9, X1: b.x1 - 9, Y1: b.y1 - 9 }; }
+  function ringLen(b) { var r = ring(b); return 2 * (r.X1 - r.X0 + r.Y1 - r.Y0); }
+  function ringPoint(b, t) {
+    var r = ring(b), w = r.X1 - r.X0, h = r.Y1 - r.Y0, P0 = 2 * (w + h);
+    t = ((t % P0) + P0) % P0;
+    if (t < w) return { x: r.X0 + t, y: r.Y0, side: 'N' };
+    t -= w; if (t < h) return { x: r.X1, y: r.Y0 + t, side: 'E' };
+    t -= h; if (t < w) return { x: r.X1 - t, y: r.Y1, side: 'S' };
+    t -= w; return { x: r.X0, y: r.Y1 - t, side: 'W' };
+  }
+  function ringParam(b, x, y) {
+    var r = ring(b), w = r.X1 - r.X0, h = r.Y1 - r.Y0;
+    var dN = Math.abs(y - r.Y0), dS = Math.abs(y - r.Y1), dW = Math.abs(x - r.X0), dE = Math.abs(x - r.X1), m = Math.min(dN, dS, dW, dE);
+    if (m === dN) return clamp(x - r.X0, 0, w);
+    if (m === dE) return w + clamp(y - r.Y0, 0, h);
+    if (m === dS) return w + h + clamp(r.X1 - x, 0, w);
+    return 2 * w + h + clamp(r.Y1 - y, 0, h);
+  }
+  var OUT = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
+  function makeDog() {
+    var c = pick(DOG_COLORS);
+    return { mode: 'walk', body: c[0], ear: c[1], size: rand(0.85, 1.15), wag: Math.random() * 6, hitCD: 0, sitT: 0, inRoad: false };
+  }
+  function spawnDog(dg, minD, maxD, hidden) {
+    for (var tries = 0; tries < 40; tries++) {
+      var b = pick(blocks), t = rand(0, ringLen(b)), p = ringPoint(b, t), pd = dist(p.x, p.y, P.x, P.y);
+      if (pd < minD || pd > maxD || (hidden && !outOfSight(p.x, p.y))) continue;
+      dg.block = b; dg.t = t; dg.x = p.x; dg.y = p.y; dg.dir = Math.random() < 0.5 ? -1 : 1; dg.mode = 'walk';
+      dg.speed = rand(22, 38); dg.inRoad = false; dg.a = 0; dg.pause = rand(1, 4); dg.ox = dg.oy = dg.svx = dg.svy = 0;
+      return true;
+    }
+    return false;
+  }
+  function updateDog(dg, dt) {
+    dg.hitCD = Math.max(0, dg.hitCD - dt);
+    dg.wag += dt * (dg.mode === 'walk' ? 9 : 18);
+    var px = dg.x, py = dg.y;
+    if (dg.mode === 'walk' || dg.mode === 'flee') {
+      var sp = dg.mode === 'flee' ? 120 : dg.speed;
+      if (dg.mode === 'walk') {
+        dg.pause -= dt;
+        if (dg.pause < 0) { if (dg.pause < -rand(0.6, 1.6)) { dg.pause = rand(2, 6); if (Math.random() < 0.3) dg.dir *= -1; } sp = 0; }
+      } else { dg.fleeT -= dt; if (dg.fleeT <= 0) dg.mode = 'walk'; }
+      dg.t += sp * dg.dir * dt;
+      stepShove(dg, dt, 35);
+      var p = ringPoint(dg.block, dg.t); dg.x = p.x + (dg.ox || 0); dg.y = p.y + (dg.oy || 0); dg.side = p.side;
+      // Dash across the street, usually just ahead of the delivery car
+      if (dg.mode === 'walk' && state === 'playing') {
+        var o = OUT[p.side], nb = blockAt(dg.block.bi + o[0], dg.block.bj + o[1]);
+        if (nb) {
+          var roadLine = o[1] ? (o[1] < 0 ? dg.block.bj : dg.block.bj + 1) * SP : (o[0] < 0 ? dg.block.bi : dg.block.bi + 1) * SP;
+          var playerOn = o[1] ? Math.abs(P.y - roadLine) < HALF : Math.abs(P.x - roadLine) < HALF;
+          var ahead = (dg.x - P.x) * Math.cos(P.a) + (dg.y - P.y) * Math.sin(P.a), pd = dist(dg.x, dg.y, P.x, P.y);
+          var chance = playerOn && ahead > 120 && pd < 520 && P.v > 60 ? L.dart : 0.006;
+          if (Math.random() < chance * dt) {
+            dg.ox = dg.oy = dg.svx = dg.svy = 0; dg.x = p.x; dg.y = p.y;
+            dg.mode = 'dart'; dg.fromX = dg.x; dg.fromY = dg.y; dg.tx = dg.x + o[0] * (RW + 18); dg.ty = dg.y + o[1] * (RW + 18);
+            dg.nb = nb; dg.sitT = level === 'hard' && Math.random() < 0.35 ? rand(0.4, 0.8) : 0; dg.sat = false;
+          }
+        }
+      }
+    } else if (dg.mode === 'dart') {
+      var dx = dg.tx - dg.x, dy = dg.ty - dg.y, dd = Math.hypot(dx, dy);
+      var half = dist(dg.fromX, dg.fromY, dg.x, dg.y) > (RW + 18) / 2;
+      if (dg.sitT > 0 && half && !dg.sat) { dg.sitT -= dt; if (dg.sitT <= 0) dg.sat = true; }
+      else {
+        var spd = level === 'easy' ? 120 : 150, stepL = Math.min(dd, spd * dt);
+        if (dd > 0.001) { dg.x += dx / dd * stepL; dg.y += dy / dd * stepL; }
+        if (dd - stepL < 2) { dg.block = dg.nb; dg.t = ringParam(dg.block, dg.x, dg.y); dg.mode = 'walk'; dg.pause = rand(1, 3); }
+      }
+    }
+    var mx = dg.x - px, my = dg.y - py;
+    if (mx * mx + my * my > 0.01) dg.a = Math.atan2(my, mx);
+    dg.inRoad = !(dg.x > dg.block.x0 - 2 && dg.x < dg.block.x1 + 2 && dg.y > dg.block.y0 - 2 && dg.y < dg.block.y1 + 2) || dg.mode === 'dart';
+  }
+
+  // =====================================================================
+  // People out for a walk on the sidewalks (just for show; cars can't reach the sidewalk)
+  // =====================================================================
+  var walkers = [], WALKERS = 9;
+  function makeWalker() { return { step: Math.random() * 6, pause: rand(3, 8), stopFor: rand(1, 3), fallT: 0, hitCD: 0 }; }
+  function spawnWalker(w, minD, maxD, hidden) {
+    for (var tries = 0; tries < 40; tries++) {
+      var b = pick(blocks), t = rand(0, ringLen(b)), p = ringPoint(b, t), pd = dist(p.x, p.y, P.x, P.y);
+      if (pd < minD || pd > maxD || (hidden && !outOfSight(p.x, p.y))) continue;
+      w.block = b; w.t = t; w.x = p.x; w.y = p.y; w.dir = Math.random() < 0.5 ? -1 : 1; w.speed = rand(13, 20); w.a = 0;
+      w.ox = w.oy = w.svx = w.svy = 0; w.fallT = 0;
+      return true;
+    }
+    return false;
+  }
+  function updateWalker(w, dt) {
+    w.hitCD = Math.max(0, w.hitCD - dt);
+    stepShove(w, dt, 40);
+    if (w.fallT > 0) { w.fallT -= dt; var pf = ringPoint(w.block, w.t); w.x = pf.x + w.ox; w.y = pf.y + w.oy; return; }
+    var sp = w.speed;
+    w.pause -= dt;
+    if (w.pause < 0) { sp = 0; if (w.pause < -w.stopFor) { w.pause = rand(4, 10); w.stopFor = rand(1, 3); if (Math.random() < 0.3) w.dir *= -1; } }
+    var px = w.x, py = w.y;
+    w.t += sp * w.dir * dt;
+    var p = ringPoint(w.block, w.t); w.x = p.x + (w.ox || 0); w.y = p.y + (w.oy || 0);
+    w.step += sp * dt * 0.38;
+    if ((w.x - px) * (w.x - px) + (w.y - py) * (w.y - py) > 0.0001) w.a = Math.atan2(w.y - py, w.x - px);
+  }
+
+  // =====================================================================
+  // Player car
+  // =====================================================================
+  function newPlayer() {
+    return { x: SHOP.x - 40, y: PIZZA_BLOCK[1] * SP + LANE, a: 0, v: 0, steer: 0, braking: false, hitCD: 0, surf: 'road', h: 0, inCircle: false };
+  }
+  function carCircles(x, y, a, len) {
+    var c = Math.cos(a), s = Math.sin(a), k = (len || CAR_L) / 2 - 12;
+    return [{ x: x + c * k, y: y + s * k }, { x: x, y: y }, { x: x - c * k, y: y - s * k }];
+  }
+  function collideStatic() {
+    var circles = carCircles(P.x, P.y, P.a), pushX = 0, pushY = 0, nX = 0, nY = 0, hit = false, r = 12;
+    function push(nx, ny, pen) {
+      if (Math.abs(nx * pen) > Math.abs(pushX)) pushX = nx * pen;
+      if (Math.abs(ny * pen) > Math.abs(pushY)) pushY = ny * pen;
+      nX += nx; nY += ny; hit = true;
+    }
+    for (var q = 0; q < 3; q++) {
+      var c = circles[q], list = solidsNear(c.x, c.y);
+      for (var k = 0; k < list.length; k++) {
+        var o = list[k], dx, dy, d;
+        if (o.kind === 'rect') {
+          var qx = clamp(c.x, o.x0, o.x1), qy = clamp(c.y, o.y0, o.y1); dx = c.x - qx; dy = c.y - qy; d = Math.hypot(dx, dy);
+          if (d >= r) continue;
+          if (d > 0.001) push(dx / d, dy / d, r - d);
+          else {   // centre inside: push out the shortest way
+            var m = [c.x - o.x0, o.x1 - c.x, c.y - o.y0, o.y1 - c.y], mi = m.indexOf(Math.min.apply(null, m));
+            push(mi === 0 ? -1 : mi === 1 ? 1 : 0, mi === 2 ? -1 : mi === 3 ? 1 : 0, m[mi] + r);
+          }
+        } else if (o.kind === 'circle') {
+          if (o.down) continue;                                  // already flattened
+          dx = c.x - o.x; dy = c.y - o.y; d = Math.hypot(dx, dy);
+          if (d >= r + o.r) continue;
+          if (o.movable && Math.abs(P.v) > 15) {                 // mailboxes, sign posts and street lights get flattened
+            // it tips over sideways, away from the car, so it doesn't land across your windshield
+            var hx = Math.cos(P.a) * Math.sign(P.v), hy = Math.sin(P.a) * Math.sign(P.v), sx = -hy, sy = hx;
+            if ((o.x - P.x) * sx + (o.y - P.y) * sy < 0) { sx = -sx; sy = -sy; }
+            var fl = Math.hypot(hx * 0.6 + sx, hy * 0.6 + sy);
+            knockOver(o, (hx * 0.6 + sx) / fl, (hy * 0.6 + sy) / fl);
+            P.v *= 1 / (1 + MASS[o.what]);
+            continue;
+          }
+          push(d > 0.01 ? dx / d : 1, d > 0.01 ? dy / d : 0, r + o.r - d);
+        } else {   // ellipse (the pond)
+          var ex = (c.x - o.x) / o.rx, ey = (c.y - o.y) / o.ry, e = Math.hypot(ex, ey) || 0.001;
+          var bx = o.x + ex / e * o.rx, by = o.y + ey / e * o.ry, gnx = ex / o.rx, gny = ey / o.ry, gl = Math.hypot(gnx, gny) || 1;
+          d = dist(c.x, c.y, bx, by);
+          if (e < 1) push(gnx / gl, gny / gl, r + d); else if (d < r) push(gnx / gl, gny / gl, r - d);
+        }
+      }
+      var lo = -BOUND + r, hi = WORLD + BOUND - r;   // the fence around town
+      if (c.x < lo) push(1, 0, lo - c.x);
+      if (c.x > hi) push(-1, 0, c.x - hi);
+      if (c.y < lo) push(0, 1, lo - c.y);
+      if (c.y > hi) push(0, -1, c.y - hi);
+    }
+    if (!hit) return;
+    P.x += pushX; P.y += pushY;
+    var nl = Math.hypot(nX, nY) || 1; nX /= nl; nY /= nl;
+    bounce(nX, nY, true);
+  }
+  function knockOver(o, fx, fy) {
+    o.down = true; o.fallT = 0; o.fx = fx; o.fy = fy;
+    shake = Math.max(shake, 0.08 + MASS[o.what] * 0.3);
+    thud(volAt(o.x, o.y), MASS[o.what]);
+    addText(o.what === 'mailbox' || o.what === 'bench' ? 'Crunch!' : 'Clang!', o.x, o.y, '#6b4a33', 0);
+  }
+  // Shove a movable thing out of the way: light things fly aside, heavy things push back on you.
+  // n points from your car toward the thing; pen is how much they overlap.
+  function shove(o, nx, ny, pen, m, hit) {
+    var share = 1 / (1 + m);
+    o.ox = (o.ox || 0) + nx * pen * share; o.oy = (o.oy || 0) + ny * pen * share;
+    o.x += nx * pen * share; o.y += ny * pen * share;
+    P.x -= nx * pen * (1 - share); P.y -= ny * pen * (1 - share);
+    if (hit) {
+      var kick = Math.min(260, Math.abs(P.v) * 1.1 * share + 40);
+      o.svx = (o.svx || 0) * 0.3 + nx * kick; o.svy = (o.svy || 0) * 0.3 + ny * kick;
+      P.v *= 1 / (1 + m);                                         // the heavier it is, the more it slows you
+    }
+    o.returnT = 1.8;
+  }
+  // Let a shoved thing slide to a stop, then drift back to where it belongs
+  function stepShove(o, dt, maxOff) {
+    if (!o.ox && !o.oy && !o.svx && !o.svy) return;
+    o.ox = (o.ox || 0) + (o.svx || 0) * dt; o.oy = (o.oy || 0) + (o.svy || 0) * dt;
+    var f = Math.exp(-5 * dt); o.svx = (o.svx || 0) * f; o.svy = (o.svy || 0) * f;
+    var m = Math.hypot(o.ox, o.oy);
+    if (m > maxOff) { o.ox *= maxOff / m; o.oy *= maxOff / m; o.svx = o.svy = 0; }
+    o.returnT = (o.returnT || 0) - dt;
+    if (o.returnT <= 0) { var back = Math.exp(-0.8 * dt); o.ox *= back; o.oy *= back; if (Math.abs(o.ox) + Math.abs(o.oy) < 0.3) o.ox = o.oy = 0; }
+  }
+
+  // Hitting a building, tree or the fence: head-on you stop (back up and go around);
+  // at an angle you scrape along it and keep most of your speed.
+  function bounce(nx, ny, isWall) {
+    var dirv = P.v >= 0 ? 1 : -1, mx = Math.cos(P.a) * dirv, my = Math.sin(P.a) * dirv;   // the way the car is moving
+    var into = -(mx * nx + my * ny) * Math.abs(P.v);
+    if (into <= 5) return;
+    var cosHit = -(mx * nx + my * ny);                    // 1 = straight on, 0 = sliding past
+    if (cosHit > 0.85) { P.v *= 0.15; }                    // head-on: stop (no stalling bounce, so backing up works right away)
+    else {
+      P.v *= 1 - 0.25 * cosHit;                            // scrape: lose a little speed
+      var tx = -ny, ty = nx; if (tx * mx + ty * my < 0) { tx = -tx; ty = -ty; }
+      var want = Math.atan2(ty * dirv, tx * dirv);         // turn the car to run along the wall
+      P.a += angDiff(want, P.a) * 0.35;
+    }
+    if (isWall && into > 110 && bonkT <= 0) { bonkT = 0.7; addText(cosHit > 0.85 ? 'Bonk!' : 'Scrape!', P.x, P.y, '#6b4a33', 0); shake = 0.18; }
+  }
+  function collideMoving() {
+    var mine = carCircles(P.x, P.y, P.a), q, k, moving = Math.abs(P.v) > 25;
+    for (q = 0; q < vehicles.length; q++) {   // cars and cyclists get shoved aside
+      var v = vehicles[q];
+      if (dist(v.x, v.y, P.x, P.y) > 90) continue;
+      var theirs = v.kind === 'bike' ? [{ x: v.x, y: v.y }] : carCircles(v.x, v.y, v.a, v.carLen), rr = v.kind === 'bike' ? 22 : 24;
+      var touched = false, nx = 0, ny = 0, pen = 0;
+      for (k = 0; k < mine.length; k++) for (var m = 0; m < theirs.length; m++) {
+        var dx = theirs[m].x - mine[k].x, dy = theirs[m].y - mine[k].y, d = Math.hypot(dx, dy);
+        if (d < rr && rr - d > pen) { pen = rr - d; nx = d > 0.01 ? dx / d : 1; ny = d > 0.01 ? dy / d : 0; touched = true; }
+      }
+      if (!touched) continue;
+      var mass = MASS[v.kind === 'bike' ? 'bike' : v.type], hit = v.hitCD <= 0 && moving;
+      shove(v, nx, ny, pen, mass, hit);
+      if (hit) {
+        v.hitCD = 1.6;
+        if (v.kind === 'bike') { v.fallT = 2.2; addText('Hey!', v.x, v.y, '#3a2216', 0.15); penalty('bike', v.x, v.y); bell(1); hey(); }
+        else { v.stopT = 1.6; v.speed *= 0.3; addText('HONK!', v.x, v.y, '#3a2216', 0.15); penalty('car', v.x, v.y); honk(1, 1); shake = Math.max(shake, 0.2 + mass * 0.1); }
+      } else if (v.kind === 'car') v.stopT = Math.max(v.stopT, 0.6);
+    }
+    for (q = 0; q < walkers.length; q++) {   // people on the sidewalk get bumped out of the way
+      var wk = walkers[q];
+      if (dist(wk.x, wk.y, P.x, P.y) > 60) continue;
+      for (k = 0; k < mine.length; k++) {
+        var wdx = wk.x - mine[k].x, wdy = wk.y - mine[k].y, wd = Math.hypot(wdx, wdy);
+        if (wd > 19) continue;
+        var whit = wk.fallT <= 0 && wk.hitCD <= 0 && moving;
+        shove(wk, wd > 0.01 ? wdx / wd : 1, wd > 0.01 ? wdy / wd : 0, 19 - wd, MASS.walker, whit);
+        if (whit) { wk.hitCD = 2.5; wk.fallT = 2.2; addText('Hey! Watch it!', wk.x, wk.y, '#3a2216', 0.15); penalty('walker', wk.x, wk.y); hey(); }
+        break;
+      }
+    }
+    for (q = 0; q < dogs.length; q++) {
+      var dg = dogs[q];
+      if (dist(dg.x, dg.y, P.x, P.y) > 60) continue;
+      for (k = 0; k < mine.length; k++) {
+        var ddx = dg.x - mine[k].x, ddy = dg.y - mine[k].y, dd = Math.hypot(ddx, ddy);
+        if (dd > 20) continue;
+        var dhit = dg.hitCD <= 0 && moving;
+        if (dg.mode === 'dart') { dg.x += (dd > 0.01 ? ddx / dd : 1) * (20 - dd); dg.y += (dd > 0.01 ? ddy / dd : 0) * (20 - dd); if (dhit) P.v *= 1 / (1 + MASS.dog); }
+        else shove(dg, dd > 0.01 ? ddx / dd : 1, dd > 0.01 ? ddy / dd : 0, 20 - dd, MASS.dog, dhit);
+        if (dhit) {
+          dg.hitCD = 1.6;
+          addText('Yelp!', dg.x, dg.y, '#3a2216', 0.15); penalty('dog', dg.x, dg.y);
+          if (dg.mode === 'dart') { dg.sitT = 0; dg.sat = true; } else { dg.mode = 'flee'; dg.fleeT = 1.6; dg.dir = Math.random() < 0.5 ? -1 : 1; }
+        }
+        break;
+      }
+    }
+  }
+  function updatePlayer(dt) {
+    // ↑ (keys.gas) pushes the car forward. ↓ (keys.brake) slows it down, and if you keep holding it, backs up.
+    // Throttle from -1 (full back) to +1 (full forward): the arrow keys, or how far the phone joystick is pushed
+    var thr = joy.active ? joy.y : (keys.gas ? 1 : 0) - (keys.brake ? 1 : 0);
+    var gas = thr > 0.05 ? thr : 0, back = thr < -0.05 ? -thr : 0;
+    var surf = surfaceAt(P.x, P.y);
+    var drag = ROLL + DRAG * P.v * P.v;   // always there, like a real car
+    if (gas) {
+      if (P.v < -0.5) P.v = Math.min(0, P.v + BRAKE * gas * dt);                              // rolling backward: stop first
+      else { var f = Math.max(0, P.v), top = MAX_SPEED * (0.35 + 0.65 * gas); P.v = Math.min(Math.max(top, f - drag * dt), f + (ENGINE * gas * (1 - 0.7 * f / MAX_SPEED) - drag) * dt); }
+    } else if (back) {
+      if (P.v > 0.5) P.v = Math.max(0, P.v - BRAKE * back * dt);                              // rolling forward: slow down first
+      else { var r0 = Math.max(0, -P.v); P.v = -Math.min(REV_MAX, r0 + (ENGINE * 0.95 * back * (1 - 0.7 * r0 / REV_MAX) - drag) * dt); }
+    } else P.v -= clamp(P.v, -drag * dt, drag * dt);                                          // coasting
+    // Sidewalks and lawns are a little bumpy, but they don't slow you down
+    if (surf !== P.surf) { if (Math.abs(P.v) > 45 && (surf === 'road' || P.surf === 'road')) shake = Math.max(shake, 0.1); P.surf = surf; }
+    P.h += (groundAt(P.x, P.y) - P.h) * Math.min(1, dt * 14);
+    P.braking = back && P.v > 1;
+    var want = joy.active ? joy.x : (keys.left ? -1 : 0) + (keys.right ? 1 : 0);
+    P.steer += clamp(want - P.steer, -STEER_RATE * dt, STEER_RATE * dt);
+    // Turning: tight at low speed, wider the faster you go (the tires only grip so much)
+    var sp = Math.abs(P.v), yaw = sp < 0.5 ? 0 : Math.min(sp / MIN_RADIUS, (touchOn ? GRIP_TOUCH : GRIP) / sp);
+    P.a += P.steer * yaw * (P.v < 0 ? -1 : 1) * dt;
+    if (P.a > Math.PI) P.a -= 2 * Math.PI; else if (P.a < -Math.PI) P.a += 2 * Math.PI;
+    P.x += Math.cos(P.a) * P.v * dt; P.y += Math.sin(P.a) * P.v * dt;
+    collideStatic();
+    collideMoving();
+    // Delivery: drive into the yellow circle and press Space (or tap DROP)
+    P.inCircle = !!order && dist(P.x, P.y, order.house.spot.x, order.house.spot.y) < DELIVER_RADIUS;
+  }
+  function tryDeliver() {
+    if (state !== 'playing' || !order) return;
+    if (!P.inCircle) { addText('Not here! Drop it in the yellow circle', P.x, P.y, '#d23a2a', 0); return; }
+    if (Math.abs(P.v) > DELIVER_SPEED) { addText('Slow down to drop it off!', P.x, P.y, '#d23a2a', 0); return; }
+    deliver();
+  }
+
+  // =====================================================================
+  // Game flow
+  // =====================================================================
+  function populate(hidden) {
+    var q;
+    function drop(o) {   // free the old 3D model's memory on the graphics card
+      if (!o.mesh) return;
+      scene.remove(o.mesh);
+      o.mesh.traverse(function (n) { if (n.geometry && n.geometry !== unitBox && n.geometry !== wheelGeo && n.geometry !== hubGeo) n.geometry.dispose(); });
+    }
+    vehicles.forEach(drop); dogs.forEach(drop);
+    vehicles = []; dogs = [];
+    for (q = 0; q < L.cars; q++) { var v = makeVehicle('car'); if (spawnVehicle(v, 260, 1150, hidden)) vehicles.push(v); }
+    for (q = 0; q < L.bikes; q++) { var bk = makeVehicle('bike'); if (spawnVehicle(bk, 260, 1100, hidden)) vehicles.push(bk); }
+    for (q = 0; q < L.dogs; q++) { var dg = makeDog(); if (spawnDog(dg, 220, 1000, hidden)) dogs.push(dg); }
+    if (!walkers.length) for (q = 0; q < WALKERS; q++) { var wk = makeWalker(); if (spawnWalker(wk, 60, 900, hidden)) walkers.push(wk); }
+    else for (q = 0; q < walkers.length; q++) spawnWalker(walkers[q], 60, 900, hidden);
+  }
+  function startGame() {
+    audio();   // browsers only allow sound after a tap or key press, and Start is one
+    lb.beginRun();
+    P = newPlayer();
+    cam.x = P.x; cam.y = P.y; cam.a = P.a;
+    money = 0; deliveries = 0; tipsTotal = 0; bumpsTotal = 0; playT = 0; timeLeft = GAME_SECONDS;
+    texts = []; fx = []; order = null;
+    knockables.forEach(function (o) { o.down = false; o.fallT = 0; });
+    resetKnocked();
+    keys.gas = keys.brake = keys.left = keys.right = false;
+    releaseAllTouches();
+    populate(false);
+    state = 'playing';
+    newOrder();
+    navBox.hidden = false; hudBox.hidden = false;
+    overlay.hidden = true;
+    btn.blur();
+    try { window.focus(); } catch (e) {}
+    updateHud();
+  }
+  function endGame() {
+    state = 'done';
+    endedAt = performance.now();
+    keys.gas = keys.brake = keys.left = keys.right = false;
+    releaseAllTouches();
+    navBox.hidden = true; hudBox.hidden = true;
+    msg.innerHTML = 'Time\'s up! You delivered <b>' + deliveries + ' pizza' + (deliveries === 1 ? '' : 's') + '</b> and earned <b>' +
+      money$(money) + '</b> on ' + LEVEL_NAMES[level] + '.<br>Tips: ' + money$(tipsTotal) + ' &nbsp;·&nbsp; Lost to bumps: ' + money$(bumpsTotal);
+    btn.textContent = 'Drive again';
+    overlay.hidden = false;
+    updateHud();
+    lb.finishRun(money, 'time_up');
+  }
+  function updateHud() {
+    var t = Math.ceil(timeLeft);
+    hudTime.textContent = Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2);
+    hudTime.className = 'pill' + (state === 'playing' && timeLeft <= 15 ? ' low' : '');
+    hudCash.firstChild.nodeValue = '💵 ' + money$(money);
+    if (state === 'playing') updateTip();
+  }
+
+  function update(dt) {
+    if (state === 'playing') {
+      playT += dt;
+      timeLeft -= dt;
+      if (timeLeft <= 0) { timeLeft = 0; endGame(); }
+    }
+    if (state === 'playing') updatePlayer(dt);
+    else if (P) { P.v = state === 'done' ? P.v * Math.max(0, 1 - 3 * dt) : 0; P.x += Math.cos(P.a) * P.v * dt; P.y += Math.sin(P.a) * P.v * dt; }
+    var q;
+    for (q = 0; q < vehicles.length; q++) updateVehicle(vehicles[q], dt);
+    for (q = 0; q < dogs.length; q++) updateDog(dogs[q], dt);
+    for (q = 0; q < walkers.length; q++) updateWalker(walkers[q], dt);
+    // Keep traffic around the player: things that wander far away come back somewhere nearby, out of sight
+    recycleT -= dt;
+    if (recycleT <= 0) {
+      recycleT = 0.4;
+      for (q = 0; q < vehicles.length; q++) if (dist(vehicles[q].x, vehicles[q].y, P.x, P.y) > 1250) spawnVehicle(vehicles[q], 160, 1150, true);
+      for (q = 0; q < dogs.length; q++) if (dogs[q].mode !== 'dart' && dist(dogs[q].x, dogs[q].y, P.x, P.y) > 1100) spawnDog(dogs[q], 160, 1000, true);
+      for (q = 0; q < walkers.length; q++) if (dist(walkers[q].x, walkers[q].y, P.x, P.y) > 1000) spawnWalker(walkers[q], 160, 900, true);
+    }
+    for (q = fx.length - 1; q >= 0; q--) { fx[q].t += dt; if (fx[q].t > fx[q].dur) fx.splice(q, 1); }
+    for (q = texts.length - 1; q >= 0; q--) { texts[q].t += dt; if (texts[q].t > texts[q].life) texts.splice(q, 1); }
+    bonkT -= dt; slowHintT -= dt; shake = Math.max(0, shake - dt);
+    if (state === 'playing') { navT -= dt; if (navT <= 0) { navT = 0.12; updateNav(); } }
+    // "Press Space" prompt while you're inside the drop-off circle
+    var ready = state === 'playing' && P.inCircle;
+    if (dropHint.hidden === ready) { dropHint.hidden = !ready; dropBtn.classList.toggle('ready', ready); }
+  }
+
+  // =====================================================================
+  // 3D view: you sit in the driver's seat and look out through the windshield
+  // (three.js; world x → 3D x, world y → 3D z, height is 3D y)
+  // =====================================================================
+  var T = window.THREE;
+  var renderer = null, scene, camera, sun, sky, dashCv = document.getElementById('dash'), dctx = dashCv.getContext('2d');
+  var unitBox, matCache = {}, beacon, pinSprite, dropRing, boxMesh, hood, VC, VC_SHINY, TEX = {};
+  var EYE_H = 15, CURB = 2.4, camRear = null, rearRect = null;                 // eye height above the road; sidewalks/lawns are raised a little
+  var SHADOWS = false;
+  var sway = 0, swayV = 0;                    // the pizza air freshener swinging on the mirror
+  function lam(c) { if (!matCache[c]) matCache[c] = new T.MeshLambertMaterial({ color: c }); return matCache[c]; }
+  function boxAt(parent, w, h, d, x, y, z, m) {
+    var mesh = new T.Mesh(unitBox, m); mesh.scale.set(w, h, d); mesh.position.set(x, y, z); parent.add(mesh); return mesh;
+  }
+
+  // ---- Painted textures (drawn once on hidden canvases) ----
+  function canvasTex(size, draw, rx, ry) {
+    var c = document.createElement('canvas'); c.width = c.height = size;
+    draw(c.getContext('2d'), size);
+    var t = new T.CanvasTexture(c);
+    t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(rx || 1, ry || 1);
+    t.anisotropy = renderer ? Math.min(8, renderer.capabilities.getMaxAnisotropy()) : 1;
+    return t;
+  }
+  function speckle(g, n, size, colors, alpha) {
+    for (var i = 0; i < n; i++) {
+      g.globalAlpha = alpha * (0.4 + Math.random() * 0.6); g.fillStyle = pick(colors);
+      var s = size * (0.4 + Math.random()); g.fillRect(Math.random() * 512, Math.random() * 512, s, s);
+    }
+    g.globalAlpha = 1;
+  }
+  function makeTextures() {
+    TEX.asphalt = canvasTex(512, function (g) {
+      g.fillStyle = '#5c6168'; g.fillRect(0, 0, 512, 512);
+      speckle(g, 9000, 2.2, ['#454950', '#6e737b', '#7b7f86', '#50545b'], 0.7);
+      g.strokeStyle = 'rgba(40,42,46,0.35)'; g.lineWidth = 1.5;
+      for (var k = 0; k < 5; k++) { g.beginPath(); var x = Math.random() * 512, y = Math.random() * 512; g.moveTo(x, y);
+        for (var q = 0; q < 6; q++) { x += rand(-30, 30); y += rand(-30, 30); g.lineTo(x, y); } g.stroke(); }
+      g.fillStyle = 'rgba(30,32,36,0.18)'; for (k = 0; k < 6; k++) { g.beginPath(); g.ellipse(Math.random() * 512, Math.random() * 512, rand(20, 60), rand(10, 30), rand(0, 3), 0, 6.283); g.fill(); }
+    }, (WORLD + RW) / 120, (WORLD + RW) / 120);
+    function grass(g) {
+      g.fillStyle = '#7fb95f'; g.fillRect(0, 0, 512, 512);
+      for (var i = 0; i < 5000; i++) {
+        g.strokeStyle = pick(['#6da94f', '#8cc66a', '#79b259', '#94cc72', '#5f9a44']); g.globalAlpha = 0.6; g.lineWidth = 1.4;
+        var x = Math.random() * 512, y = Math.random() * 512; g.beginPath(); g.moveTo(x, y); g.lineTo(x + rand(-2, 2), y - rand(3, 8)); g.stroke();
+      }
+      g.globalAlpha = 1;
+    }
+    TEX.grass = canvasTex(512, grass, 60, 60);
+    TEX.lawn = canvasTex(512, grass, 3, 3);
+    TEX.concrete = canvasTex(512, function (g) {
+      g.fillStyle = '#d7d2c4'; g.fillRect(0, 0, 512, 512);
+      speckle(g, 4000, 2, ['#c7c1b2', '#e3ded2', '#bfb9aa'], 0.6);
+      g.strokeStyle = 'rgba(120,112,98,0.55)'; g.lineWidth = 2;
+      for (var i = 0; i <= 512; i += 64) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 512); g.moveTo(0, i); g.lineTo(512, i); g.stroke(); }
+    }, 5, 5);
+    TEX.siding = canvasTex(256, function (g) {      // white lap siding; each house's paint color tints it
+      g.fillStyle = '#f4f4f4'; g.fillRect(0, 0, 256, 256);
+      for (var y = 0; y < 256; y += 16) {
+        var gr = g.createLinearGradient(0, y, 0, y + 16); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.85, '#e6e6e6'); gr.addColorStop(1, '#b9b9b9');
+        g.fillStyle = gr; g.fillRect(0, y, 256, 16);
+      }
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, 8, 256); g.fillRect(248, 0, 8, 256);   // corner boards
+    });
+    TEX.roof = canvasTex(256, function (g) {        // asphalt shingles
+      g.fillStyle = '#bdbdbd'; g.fillRect(0, 0, 256, 256);
+      for (var row = 0; row < 16; row++) {
+        var y = row * 16, off = row % 2 ? 12 : 0;
+        for (var x = -24 + off; x < 256; x += 24) {
+          var v = 170 + Math.floor(Math.random() * 60); g.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')';
+          g.fillRect(x + 1, y + 1, 22, 14);
+        }
+        g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, y + 14, 256, 2);
+      }
+    }, 3, 2);
+    TEX.window = canvasTex(128, function (g) {
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, 128, 128);
+      var gr = g.createLinearGradient(0, 10, 0, 118); gr.addColorStop(0, '#9cc4e4'); gr.addColorStop(1, '#3f5f7d');
+      g.fillStyle = gr; g.fillRect(12, 12, 104, 104);
+      g.fillStyle = 'rgba(255,255,255,0.35)'; g.beginPath(); g.moveTo(20, 110); g.lineTo(60, 14); g.lineTo(78, 14); g.lineTo(38, 110); g.fill();
+      g.fillStyle = '#fbf6e8'; g.fillRect(12, 12, 22, 104); g.fillRect(94, 12, 22, 104);   // curtains
+      g.fillStyle = '#ffffff'; g.fillRect(60, 12, 8, 104); g.fillRect(12, 60, 104, 8);       // window bars
+    });
+    TEX.door = canvasTex(128, function (g) {
+      g.fillStyle = '#d0d0d0'; g.fillRect(0, 0, 128, 128);
+      g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 4;
+      g.strokeRect(22, 12, 34, 46); g.strokeRect(72, 12, 34, 46); g.strokeRect(22, 70, 34, 50); g.strokeRect(72, 70, 34, 50);
+      g.fillStyle = '#f2d36b'; g.beginPath(); g.arc(104, 70, 5, 0, 6.283); g.fill();
+    });
+    TEX.garage = canvasTex(128, function (g) {
+      g.fillStyle = '#f1f1f1'; g.fillRect(0, 0, 128, 128);
+      for (var y = 0; y < 128; y += 21) { g.fillStyle = '#c9c9c9'; g.fillRect(0, y, 128, 3); }
+      g.fillStyle = 'rgba(0,0,0,0.08)'; for (var x = 0; x < 128; x += 32) g.fillRect(x, 0, 2, 128);
+    });
+    TEX.bark = canvasTex(128, function (g) {
+      g.fillStyle = '#7a5434'; g.fillRect(0, 0, 128, 128);
+      for (var i = 0; i < 70; i++) { g.strokeStyle = pick(['#5e3f26', '#8b6440', '#6a4a2e']); g.lineWidth = rand(1, 3);
+        var x = Math.random() * 128; g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + rand(-6, 6), 40, x + rand(-6, 6), 90, x + rand(-4, 4), 128); g.stroke(); }
+    }, 1, 2);
+    TEX.leaves = canvasTex(256, function (g) {      // blotchy leaves; each tree's green tints it
+      g.fillStyle = '#c8c8c8'; g.fillRect(0, 0, 256, 256);
+      for (var i = 0; i < 900; i++) { var v = 120 + Math.floor(Math.random() * 135); g.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')';
+        g.beginPath(); g.ellipse(Math.random() * 256, Math.random() * 256, rand(3, 9), rand(2, 5), rand(0, 3), 0, 6.283); g.fill(); }
+    }, 2, 2);
+    TEX.brick = canvasTex(256, function (g) {
+      g.fillStyle = '#d9d0c2'; g.fillRect(0, 0, 256, 256);
+      for (var row = 0; row < 16; row++) for (var x = (row % 2) * -16; x < 256; x += 32) {
+        var r = 160 + Math.floor(Math.random() * 40), gg = 70 + Math.floor(Math.random() * 25);
+        g.fillStyle = 'rgb(' + r + ',' + gg + ',' + (gg - 15) + ')'; g.fillRect(x + 1.5, row * 16 + 1.5, 29, 13);
+      }
+    }, 3, 1);
+  }
+  function textTexture(text, w, h, bg, fg, font) {
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var g = c.getContext('2d');
+    g.fillStyle = bg; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = Math.max(3, h * 0.07); g.strokeRect(g.lineWidth, g.lineWidth, w - 2 * g.lineWidth, h - 2 * g.lineWidth);
+    g.fillStyle = fg; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, w / 2, h / 2 + 2);
+    var t = new T.CanvasTexture(c); t.anisotropy = 4; return t;
+  }
+
+  // Fill an InstancedMesh: fn(item, obj, color) positions obj (and tints it) for each item
+  function instanced(geo, list, fn, mat, opts) {
+    if (!list.length) return null;
+    var m = new T.InstancedMesh(geo, mat || new T.MeshLambertMaterial({ color: 0xffffff }), list.length);
+    var o = new T.Object3D(), col = new T.Color();
+    for (var i = 0; i < list.length; i++) {
+      o.position.set(0, 0, 0); o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1); col.set(0xffffff);
+      fn(list[i], o, col);
+      o.updateMatrix(); m.setMatrixAt(i, o.matrix); m.setColorAt(i, col);
+    }
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+    m.frustumCulled = false;
+    if (opts && opts.cast) m.castShadow = SHADOWS;
+    if (opts && opts.receive) m.receiveShadow = SHADOWS;
+    scene.add(m);
+    return m;
+  }
+  // Street furniture you can flatten: remember which instance in which mesh belongs to which object
+  function registerParts(objs, mesh) {
+    if (!mesh) return;
+    for (var i = 0; i < objs.length; i++) {
+      var base = new T.Matrix4(); mesh.getMatrixAt(i, base);
+      objs[i].parts.push({ mesh: mesh, i: i, base: base });
+    }
+  }
+  var knockM = null, knockR = null, knockT1 = null, knockT2 = null;
+  function poseKnocked(o, ang) {   // tip the object over around its base, toward the way it was hit
+    if (!knockM) { knockM = new T.Matrix4(); knockR = new T.Matrix4(); knockT1 = new T.Matrix4(); knockT2 = new T.Matrix4(); }
+    var axis = new T.Vector3(o.fy || 0, 0, -(o.fx || 1)).normalize();
+    knockR.makeRotationAxis(axis, ang); knockT1.makeTranslation(o.x, CURB, o.y); knockT2.makeTranslation(-o.x, -CURB, -o.y);
+    o.parts.forEach(function (pt) {
+      knockM.copy(knockT1).multiply(knockR).multiply(knockT2).multiply(pt.base);
+      pt.mesh.setMatrixAt(pt.i, knockM); pt.mesh.instanceMatrix.needsUpdate = true;
+    });
+  }
+  function resetKnocked() {
+    if (!renderer) return;
+    knockables.forEach(function (o) {
+      if (!o.shown) return;
+      o.parts.forEach(function (pt) { pt.mesh.setMatrixAt(pt.i, pt.base); pt.mesh.instanceMatrix.needsUpdate = true; });
+      o.shown = false;
+    });
+  }
+  function animateKnocked(dt) {
+    for (var k = 0; k < knockables.length; k++) {
+      var o = knockables[k];
+      if (!o.down || (o.shown && o.fallT >= 1)) continue;
+      o.fallT = Math.min(1, (o.fallT || 0) + dt * 2.6);
+      var e = o.fallT * o.fallT;                        // speeds up as it falls, like gravity
+      poseKnocked(o, e * (o.what === 'mailbox' ? 1.5 : 1.52));
+      o.shown = true;
+    }
+  }
+  function texMat(tex, extra) { var o = { color: 0xffffff, map: tex }; for (var k in extra) o[k] = extra[k]; return new T.MeshLambertMaterial(o); }
+  function roofGeo() {   // unit gable roof with texture coordinates: ridge along x, base at y=0, peak at y=1
+    var A = [-0.5, 0, -0.5], B = [0.5, 0, -0.5], C = [0.5, 0, 0.5], D = [-0.5, 0, 0.5], E = [-0.5, 1, 0], F = [0.5, 1, 0], v = [], uv = [];
+    function tri(p, q, r, a, b, c) { v.push.apply(v, p.concat(q, r)); uv.push.apply(uv, a.concat(b, c)); }
+    tri(A, E, F, [0, 0], [0, 1], [1, 1]); tri(A, F, B, [0, 0], [1, 1], [1, 0]);
+    tri(D, C, F, [0, 0], [1, 0], [1, 1]); tri(D, F, E, [0, 0], [1, 1], [0, 1]);
+    tri(A, D, E, [0, 0], [1, 0], [0.5, 0.5]); tri(B, F, C, [0, 0], [0.5, 0.5], [1, 0]);
+    var g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(v, 3));
+    g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2)); g.computeVertexNormals(); return g;
+  }
+  function taper(topX, topZ, shift) {   // a box whose top is narrower (car cabins, dog chests)
+    var g = new T.BoxGeometry(1, 1, 1), p = g.attributes.position;
+    for (var i = 0; i < p.count; i++) if (p.getY(i) > 0) { p.setX(i, p.getX(i) * topX + shift); p.setZ(i, p.getZ(i) * topZ); }
+    g.computeVertexNormals(); return g;
+  }
+  // Merge many colored parts into one mesh (one draw call per model)
+  function Builder() { this.p = []; this.n = []; this.c = []; }
+  Builder.prototype.add = function (geo, color, x, y, z, rx, ry, rz, sx, sy, sz) {
+    var g = geo.index ? geo.toNonIndexed() : geo.clone();
+    g.applyMatrix4(new T.Matrix4().compose(new T.Vector3(x, y, z), new T.Quaternion().setFromEuler(new T.Euler(rx || 0, ry || 0, rz || 0)),
+      new T.Vector3(sx === undefined ? 1 : sx, sy === undefined ? 1 : sy, sz === undefined ? 1 : sz)));
+    var pa = g.attributes.position.array, na = g.attributes.normal.array, col = new T.Color(color), i;
+    for (i = 0; i < pa.length; i++) { this.p.push(pa[i]); this.n.push(na[i]); }
+    for (i = 0; i < pa.length / 3; i++) this.c.push(col.r, col.g, col.b);
+    return this;
+  };
+  Builder.prototype.box = function (color, w, h, d, x, y, z, rx, ry, rz) { return this.add(unitBox, color, x, y, z, rx, ry, rz, w, h, d); };
+  Builder.prototype.mesh = function (mat) {
+    var g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(this.p, 3));
+    g.setAttribute('normal', new T.Float32BufferAttribute(this.n, 3));
+    g.setAttribute('color', new T.Float32BufferAttribute(this.c, 3));
+    g.computeBoundingSphere();
+    var m = new T.Mesh(g, mat || VC); m.castShadow = SHADOWS; return m;
+  };
+
+  function init3D() {
+    if (!T) throw new Error('3D library did not load');
+    renderer = new T.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: 'high-performance' });
+    SHADOWS = !touchOn;                         // soft sun shadows on computers; phones skip them to stay smooth
+    renderer.shadowMap.enabled = SHADOWS;
+    renderer.shadowMap.type = T.PCFSoftShadowMap;
+    scene = new T.Scene();
+    scene.fog = new T.Fog(0xd3e7f2, 420, 1250);
+    camera = new T.PerspectiveCamera(66, 1, 1, 1400);
+    scene.add(camera);
+    unitBox = new T.BoxGeometry(1, 1, 1);
+    VC = new T.MeshLambertMaterial({ vertexColors: true });
+    VC_SHINY = new T.MeshPhongMaterial({ vertexColors: true, shininess: 70, specular: 0x555555 });
+    makeTextures();
+
+    // Sky dome with a few clouds (it travels with the camera)
+    sky = new T.Group(); scene.add(sky);
+    var skyGeo = new T.SphereGeometry(1300, 24, 12), cols = [], top = new T.Color(0x6fb2e6), hor = new T.Color(0xd8ecf6), tmp = new T.Color();
+    for (var vi = 0; vi < skyGeo.attributes.position.count; vi++) {
+      var yy = skyGeo.attributes.position.getY(vi) / 1300; tmp.copy(hor).lerp(top, clamp(yy * 1.6, 0, 1)); cols.push(tmp.r, tmp.g, tmp.b);
+    }
+    skyGeo.setAttribute('color', new T.Float32BufferAttribute(cols, 3));
+    sky.add(new T.Mesh(skyGeo, new T.MeshBasicMaterial({ vertexColors: true, side: T.BackSide, fog: false, depthWrite: false })));
+    var cc = document.createElement('canvas'); cc.width = 256; cc.height = 128; var cg = cc.getContext('2d');
+    for (var ci = 0; ci < 9; ci++) { var gr0 = cg.createRadialGradient(60 + ci * 17, 70 + rand(-12, 12), 4, 60 + ci * 17, 70, rand(26, 40));
+      gr0.addColorStop(0, 'rgba(255,255,255,0.9)'); gr0.addColorStop(1, 'rgba(255,255,255,0)'); cg.fillStyle = gr0; cg.fillRect(0, 0, 256, 128); }
+    var cloudMat = new T.SpriteMaterial({ map: new T.CanvasTexture(cc), fog: false, depthWrite: false, transparent: true, opacity: 0.85 });
+    for (ci = 0; ci < 14; ci++) { var cs = new T.Sprite(cloudMat), ang = Math.random() * 6.283; cs.scale.set(rand(260, 420), rand(90, 140), 1);
+      cs.position.set(Math.cos(ang) * 1150, rand(260, 520), Math.sin(ang) * 1150); sky.add(cs); }
+
+    // Lights: soft sky light plus a warm afternoon sun (which casts shadows on computers)
+    scene.add(new T.HemisphereLight(0xeef7ff, 0x6f9152, 0.75));
+    sun = new T.DirectionalLight(0xfff0d8, 0.85);
+    sun.castShadow = SHADOWS;
+    if (SHADOWS) {
+      sun.shadow.mapSize.set(2048, 2048);
+      var sc = sun.shadow.camera; sc.left = -520; sc.right = 520; sc.top = 520; sc.bottom = -520; sc.near = 10; sc.far = 1600;
+      sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.6;
+    }
+    scene.add(sun); scene.add(sun.target);
+
+    // Ground, roads and blocks
+    var ground = new T.Mesh(new T.PlaneGeometry(9000, 9000), texMat(TEX.grass)); ground.rotation.x = -Math.PI / 2;
+    ground.position.set(WORLD / 2, -0.2, WORLD / 2); ground.receiveShadow = SHADOWS; scene.add(ground);
+    var road = new T.Mesh(new T.PlaneGeometry(WORLD + RW, WORLD + RW), texMat(TEX.asphalt)); road.rotation.x = -Math.PI / 2;
+    road.position.set(WORLD / 2, 0, WORLD / 2); road.receiveShadow = SHADOWS; scene.add(road);
+    instanced(unitBox, blocks, function (b, o) {
+      o.position.set((b.x0 + b.x1) / 2, CURB / 2, (b.y0 + b.y1) / 2); o.scale.set(b.x1 - b.x0, CURB, b.y1 - b.y0); }, texMat(TEX.concrete), { receive: true });
+    instanced(unitBox, blocks, function (b, o, c) {
+      o.position.set((b.x0 + b.x1) / 2, CURB + 0.15, (b.y0 + b.y1) / 2); o.scale.set(b.x1 - b.x0 - 2 * SIDE, 0.3, b.y1 - b.y0 - 2 * SIDE);
+      c.set(b.type === 'park' ? 0xe6f2dc : 0xffffff); }, texMat(TEX.lawn), { receive: true });
+    // Paint: yellow centre dashes, white bike-lane lines, zebra crossings
+    var dashes = [], lines = [], zebra = [], i, j, a, b2, q;
+    for (j = 0; j < N; j++) for (i = 0; i < N - 1; i++) {
+      a = i * SP + HALF; b2 = (i + 1) * SP - HALF;
+      for (q = a + 22; q < b2 - 22; q += 34) dashes.push([q + 9, j * SP, 18, 3]);
+      lines.push([(a + b2) / 2, j * SP - 32, b2 - a - 28, 2]); lines.push([(a + b2) / 2, j * SP + 32, b2 - a - 28, 2]);
+      for (q = 0; q < 7; q++) { zebra.push([a + 8.5, j * SP - 40.5 + q * 13, 11, 7]); zebra.push([b2 - 8.5, j * SP - 40.5 + q * 13, 11, 7]); }
+      for (q = a + 22; q < b2 - 22; q += 34) dashes.push([j * SP, q + 9, 3, 18]);
+      lines.push([j * SP - 32, (a + b2) / 2, 2, b2 - a - 28]); lines.push([j * SP + 32, (a + b2) / 2, 2, b2 - a - 28]);
+      for (q = 0; q < 7; q++) { zebra.push([j * SP - 40.5 + q * 13, a + 8.5, 7, 11]); zebra.push([j * SP - 40.5 + q * 13, b2 - 8.5, 7, 11]); }
+    }
+    function paint(list, color) {
+      instanced(unitBox, list, function (p, o) { o.position.set(p[0], 0.12, p[1]); o.scale.set(p[2], 0.24, p[3]); },
+        new T.MeshLambertMaterial({ color: color, transparent: true, opacity: 0.9 }), { receive: true });
+    }
+    paint(dashes, 0xf2c94c); paint(lines, 0xe9ecef); paint(zebra, 0xf4f4f0);
+
+    // Houses: siding walls, shingle roofs, trim, windows, front door, garage, chimney, driveway, shrubs, mailbox
+    var homes = houses, roof = roofGeo();
+    function along(h) { return h.fy !== 0; }      // true: the front of the house runs east–west
+    function front(h, offAlong, out) {             // a point on the front wall: offAlong along the street, out toward it
+      var ax = along(h) ? 1 : 0, az = along(h) ? 0 : 1;
+      return [h.x + ax * offAlong + h.fx * (h.d / 2 + out), h.y + az * offAlong + h.fy * (h.d / 2 + out)];
+    }
+    function face(o, h, w, ht, depth) { o.scale.set(along(h) ? w : depth, ht, along(h) ? depth : w); }
+    instanced(unitBox, homes, function (h, o, c) {
+      o.position.set(h.x, CURB + 13, h.y); o.scale.set(along(h) ? h.w : h.d, 26, along(h) ? h.d : h.w); c.set(h.colors[0]); },
+      texMat(TEX.siding), { cast: true, receive: true });
+    instanced(unitBox, homes, function (h, o) {      // foundation strip
+      o.position.set(h.x, CURB + 1.2, h.y); o.scale.set((along(h) ? h.w : h.d) + 1, 2.4, (along(h) ? h.d : h.w) + 1); }, lam(0x9e978a));
+    instanced(roof, homes, function (h, o, c) {
+      o.position.set(h.x, CURB + 26, h.y); o.rotation.y = along(h) ? 0 : Math.PI / 2; o.scale.set(h.w + 8, 17, h.d + 8);
+      c.set(h.colors[1]).lerp(new T.Color(0x555555), 0.25); },
+      texMat(TEX.roof, { side: T.DoubleSide }), { cast: true });
+    instanced(unitBox, homes, function (h, o) {      // fascia board under the roof edge
+      o.position.set(h.x, CURB + 26.4, h.y); o.scale.set((along(h) ? h.w : h.d) + 8, 1.4, (along(h) ? h.d : h.w) + 8); }, lam(0xf6f3ec));
+    instanced(unitBox, homes, function (h, o, c) {
+      var p = front(h, -6, 0.6); o.position.set(p[0], CURB + 8.5, p[1]); face(o, h, 10, 17, 1.4); c.set(h.colors[1]); }, texMat(TEX.door));
+    instanced(unitBox, homes, function (h, o) {      // door step
+      var p = front(h, -6, 3); o.position.set(p[0], CURB + 0.8, p[1]); face(o, h, 14, 1.6, 5); }, lam(0xbdb6a8));
+    instanced(unitBox, homes, function (h, o) {
+      var p = front(h, 16, 0.6); o.position.set(p[0], CURB + 8, p[1]); face(o, h, 22, 16, 1.2); }, texMat(TEX.garage));
+    var wins = [];
+    homes.forEach(function (h) { wins.push([h, -22, 0]); wins.push([h, -22, 1]); wins.push([h, 16, 1]); });
+    instanced(unitBox, wins, function (w, o) {
+      var h = w[0], p = front(h, w[1], 0.7); o.position.set(p[0], CURB + (w[2] ? 20 : 11), p[1]); face(o, h, 11, 8.5, 1.2); }, texMat(TEX.window));
+    instanced(unitBox, homes, function (h, o, c) {
+      var p = front(h, -12, -h.d / 2 - 10); o.position.set(p[0], CURB + 36, p[1]); o.scale.set(7, 16, 7); c.set(0xa0614a); }, texMat(TEX.brick), { cast: true });
+    instanced(unitBox, homes, function (h, o) {      // driveway to the garage
+      var p = front(h, 16, 22); o.position.set(p[0], CURB + 0.35, p[1]); face(o, h, 20, 0.5, 44); }, texMat(TEX.concrete), { receive: true });
+    instanced(unitBox, homes, function (h, o) {      // front walk
+      var p = front(h, -6, 22); o.position.set(p[0], CURB + 0.35, p[1]); face(o, h, 6, 0.5, 40); }, lam(0xd9d0bd));
+    var shrubs = [];
+    homes.forEach(function (h) { [-28, -16, 3].forEach(function (k) { shrubs.push([h, k, rand(3.5, 5.5)]); }); });
+    instanced(new T.IcosahedronGeometry(1, 1), shrubs, function (s2, o, c) {
+      var p = front(s2[0], s2[1], 4); o.position.set(p[0], CURB + s2[2] * 0.6, p[1]); o.scale.set(s2[2], s2[2] * 0.8, s2[2]);
+      c.setHSL(0.27 + rand(-0.03, 0.03), 0.45, rand(0.32, 0.42)); }, texMat(TEX.leaves), { cast: true });
+    registerParts(mailObjs, instanced(unitBox, homes, function (h, o) {      // mailbox posts at the curb
+      var p = front(h, 30, 40); o.position.set(p[0], CURB + 4, p[1]); o.scale.set(1, 8, 1); }, lam(0x6b5a48)));
+    registerParts(mailObjs, instanced(unitBox, homes, function (h, o, c) {
+      var p = front(h, 30, 40); o.position.set(p[0], CURB + 9, p[1]); face(o, h, 3, 3, 6); c.set(pick([0x2b2b2b, 0x2f5d8a, 0xb23b3b, 0xe8e2d6])); }));
+
+    // Trees: bark trunks and leafy crowns made of a few blobs; pines around the edge of town
+    var trees = [], pines = [];
+    outerTrees.forEach(function (t) { (t.c < 0.45 ? pines : trees).push({ t: t, base: 0 }); });
+    blocks.forEach(function (b) { b.trees.forEach(function (t) { trees.push({ t: t, base: CURB }); }); });
+    instanced(new T.CylinderGeometry(1.6, 2.8, 1, 7), trees.concat(pines), function (tr, o) {
+      var hgt = tr.t.r * (pines.indexOf(tr) >= 0 ? 0.6 : 1.15); o.position.set(tr.t.x, tr.base + hgt / 2, tr.t.y); o.scale.set(1, hgt, 1); },
+      texMat(TEX.bark), { cast: true });
+    var blobs = [];
+    trees.forEach(function (tr) {
+      var r = tr.t.r, base = tr.base + r * 1.15;
+      blobs.push([tr, 0, base + r * 0.55, 0, r * 0.95]);
+      for (var k = 0; k < 3; k++) { var an = tr.t.c * 20 + k * 2.1; blobs.push([tr, Math.cos(an) * r * 0.55, base + r * (0.2 + 0.25 * k), Math.sin(an) * r * 0.55, r * rand(0.55, 0.72)]); }
+    });
+    instanced(new T.IcosahedronGeometry(1, 1), blobs, function (bl, o, c) {
+      o.position.set(bl[0].t.x + bl[1], bl[2], bl[0].t.y + bl[3]); o.scale.set(bl[4], bl[4] * 0.9, bl[4]); o.rotation.y = bl[0].t.c * 9;
+      c.setHSL(0.26 + bl[0].t.c * 0.06, 0.5, 0.36 + (bl[2] - bl[0].base) / 400); }, texMat(TEX.leaves), { cast: true });
+    instanced(new T.ConeGeometry(1, 1, 8), pines, function (tr, o, c) {
+      var r = tr.t.r; o.position.set(tr.t.x, r * 0.6 + r * 1.2, tr.t.y); o.scale.set(r * 0.85, r * 2.6, r * 0.85); c.setHSL(0.33, 0.45, 0.28 + tr.t.c * 0.1); },
+      texMat(TEX.leaves), { cast: true });
+
+    // Street lights at the corners
+    var lamps = [];
+    for (j = 0; j < N; j++) for (i = 0; i < N; i++) {
+      var lx = i * SP + (i > 0 ? -HALF - 7 : HALF + 7), lz = j * SP + (j > 0 ? -HALF - 7 : HALF + 7);
+      lamps.push([lx, lz, i > 0 ? 1 : -1]);
+    }
+    registerParts(lampObjs, instanced(new T.CylinderGeometry(0.9, 1.3, 1, 6), lamps, function (l, o) { o.position.set(l[0], CURB + 24, l[1]); o.scale.set(1, 48, 1); }, lam(0x4a4f57), { cast: true }));
+    registerParts(lampObjs, instanced(unitBox, lamps, function (l, o) { o.position.set(l[0] + l[2] * 7, CURB + 47.5, l[1]); o.scale.set(14, 1.2, 1.2); }, lam(0x4a4f57)));
+    registerParts(lampObjs, instanced(unitBox, lamps, function (l, o) { o.position.set(l[0] + l[2] * 13, CURB + 46.5, l[1]); o.scale.set(6, 1.6, 3.4); }, lam(0xfff4c9)));
+
+    // ---- Parks: paths, benches, flower beds, and a pond, a playground or a gazebo in the middle ----
+    var pathMat = lam(0xe2d6bb), flowers = [];
+    blocks.forEach(function (b) {
+      if (b.type !== 'park') return;
+      var cx = (b.x0 + b.x1) / 2, cz = (b.y0 + b.y1) / 2, wIn = b.x1 - b.x0 - 2 * SIDE;
+      if (b.park === 'pond') {
+        var pond = new T.Mesh(new T.CircleGeometry(1, 40), new T.MeshPhongMaterial({ color: 0x4f9fcc, shininess: 90, specular: 0xaaccdd }));
+        pond.rotation.x = -Math.PI / 2; pond.scale.set(70, 52, 1); pond.position.set(cx, CURB + 0.5, cz); scene.add(pond);
+        var bank = new T.Mesh(new T.RingGeometry(1, 1.12, 40), lam(0xcbb994)); bank.rotation.x = -Math.PI / 2; bank.scale.set(70, 52, 1); bank.position.set(cx, CURB + 0.45, cz); scene.add(bank);
+        var loop = new T.Mesh(new T.RingGeometry(92, 104, 48), pathMat); loop.rotation.x = -Math.PI / 2; loop.position.set(cx, CURB + 0.42, cz); scene.add(loop);
+        [[-1, 0], [1, 0], [0, -1], [0, 1]].forEach(function (d) {   // paths in from each side to the loop
+          var len = wIn / 2 - 98; boxAt(scene, d[0] ? len : 12, 0.4, d[1] ? len : 12, cx + d[0] * (98 + len / 2), CURB + 0.42, cz + d[1] * (98 + len / 2), pathMat);
+        });
+      } else {
+        boxAt(scene, wIn, 0.4, 12, cx, CURB + 0.42, cz, pathMat); boxAt(scene, 12, 0.4, wIn, cx, CURB + 0.42, cz, pathMat);
+        var plaza = new T.Mesh(new T.CircleGeometry(56, 32), pathMat); plaza.rotation.x = -Math.PI / 2; plaza.position.set(cx, CURB + 0.44, cz); scene.add(plaza);
+      }
+      for (var f = 0; f < 26; f++) {   // flower beds around the middle
+        var fa = f / 26 * 6.283, fr = b.park === 'pond' ? 112 : 64;
+        flowers.push([cx + Math.cos(fa) * fr, cz + Math.sin(fa) * fr, pick([0xe63946, 0xffd166, 0xc77dff, 0xffffff, 0xff8fab])]);
+      }
+      if (b.park === 'gazebo') {
+        var gz = new T.Group(); gz.position.set(cx, CURB, cz); scene.add(gz);
+        var base = new T.Mesh(new T.CylinderGeometry(30, 31, 3, 8), lam(0xd9d2c3)); base.position.y = 1.5; gz.add(base);
+        for (var gp = 0; gp < 8; gp++) {
+          var ga = gp / 8 * 6.283 + Math.PI / 8, post = boxAt(gz, 2.2, 24, 2.2, Math.cos(ga) * 27, 15, Math.sin(ga) * 27, lam(0xffffff)); post.castShadow = SHADOWS;
+          var rail = boxAt(gz, 20, 1.6, 1.2, Math.cos(ga + Math.PI / 8) * 25, 9, Math.sin(ga + Math.PI / 8) * 25, lam(0xffffff)); rail.rotation.y = -(ga + Math.PI / 8) + Math.PI / 2;
+        }
+        var groof = new T.Mesh(new T.ConeGeometry(38, 18, 8), texMat(TEX.roof, { color: 0x6b8f5e })); groof.position.y = 36; groof.rotation.y = Math.PI / 8; groof.castShadow = SHADOWS; gz.add(groof);
+        var finial = new T.Mesh(new T.SphereGeometry(2.4, 8, 6), lam(0xd4af37)); finial.position.y = 46; gz.add(finial);
+      }
+      if (b.park === 'play') {
+        var pg2 = new T.Group(); pg2.position.set(cx, CURB, cz); scene.add(pg2);
+        var sand = new T.Mesh(new T.CircleGeometry(52, 32), lam(0xe8d29a)); sand.rotation.x = -Math.PI / 2; sand.position.y = 0.5; pg2.add(sand);
+        // slide tower
+        [[-38, -18], [-38, 2], [-18, -18], [-18, 2]].forEach(function (p) { boxAt(pg2, 2, 22, 2, p[0], 11, p[1], lam(0x2a6fd2)); });
+        boxAt(pg2, 22, 2, 22, -28, 20, -8, lam(0xf2c94c));
+        var roofP = new T.Mesh(new T.ConeGeometry(17, 9, 4), lam(0xd23a2a)); roofP.position.set(-28, 33, -8); roofP.rotation.y = Math.PI / 4; pg2.add(roofP);
+        var slide = boxAt(pg2, 8, 1.4, 34, -28, 11, 22, lam(0xe63946)); slide.rotation.x = -0.6;
+        for (var lr = 0; lr < 5; lr++) boxAt(pg2, 10, 1.2, 1.2, -28, 3 + lr * 4, -20.5, lam(0x2a6fd2));   // ladder rungs
+        // swing set
+        [[14, -24], [14, 24], [42, -24], [42, 24]].forEach(function (p, i2) { var leg = boxAt(pg2, 1.8, 26, 1.8, p[0] + (i2 < 2 ? 3 : -3), 12, p[1], lam(0x1f9d55)); leg.rotation.z = i2 < 2 ? 0.12 : -0.12; });
+        boxAt(pg2, 32, 2, 2, 28, 25, -24, lam(0x1f9d55)); boxAt(pg2, 32, 2, 2, 28, 25, 24, lam(0x1f9d55));
+        boxAt(pg2, 2, 2, 50, 28, 25, 0, lam(0x1f9d55));
+        [-10, 10].forEach(function (z) {
+          boxAt(pg2, 0.5, 18, 0.5, 26, 15, z - 3, lam(0x555555)); boxAt(pg2, 0.5, 18, 0.5, 26, 15, z + 3, lam(0x555555));
+          boxAt(pg2, 4, 1, 8, 26, 6, z, lam(0xd23a2a));
+        });
+      }
+    });
+    instanced(new T.IcosahedronGeometry(1, 0), flowers, function (fl, o, c) { o.position.set(fl[0], CURB + 1.4, fl[1]); o.scale.set(3, 2, 3); c.set(fl[2]); }, null);
+    // benches you can knock over
+    var benchObjs = benches.map(function (bn) { return bn.obj; });
+    function benchPart(fn, mat) { registerParts(benchObjs, instanced(unitBox, benches, fn, mat || lam(0x8a5a3c), { cast: true })); }
+    benchPart(function (bn, o) { o.position.set(bn.x, CURB + 4.5, bn.y); o.rotation.y = bn.rot; o.scale.set(16, 1.2, 5); });
+    benchPart(function (bn, o) { o.position.set(bn.x - Math.sin(bn.rot) * 2.4, CURB + 8, bn.y - Math.cos(bn.rot) * 2.4); o.rotation.y = bn.rot; o.scale.set(16, 5, 1); });
+    benchPart(function (bn, o) { o.position.set(bn.x, CURB + 2, bn.y); o.rotation.y = bn.rot; o.scale.set(14, 4, 3.5); }, lam(0x3b3f45));
+
+    // ---- Downtown market streets: little shops with awnings and signs, and a parking lot behind ----
+    var stores = shops;
+    function sfront(h, offAlong, out) { return [h.x + offAlong, h.y + h.fy * (h.d / 2 + out)]; }
+    function shopH(h) { return 30 + (h.k % 2) * 8 + (h.side === 'S' ? 4 : 0); }
+    instanced(unitBox, stores.filter(function (h, i) { return i % 2 === 0; }), function (h, o, c) {
+      o.position.set(h.x, CURB + shopH(h) / 2, h.y); o.scale.set(h.w, shopH(h), h.d); c.set(0xffffff).lerp(new T.Color(h.colors[0]), 0.25); },
+      texMat(TEX.brick), { cast: true, receive: true });
+    instanced(unitBox, stores.filter(function (h, i) { return i % 2 === 1; }), function (h, o, c) {
+      o.position.set(h.x, CURB + shopH(h) / 2, h.y); o.scale.set(h.w, shopH(h), h.d); c.set(h.colors[0]); },
+      texMat(TEX.concrete), { cast: true, receive: true });
+    instanced(unitBox, stores, function (h, o, c) {   // cornice along the roof line
+      o.position.set(h.x, CURB + shopH(h) + 1, h.y); o.scale.set(h.w + 2, 3, h.d + 2); c.set(h.colors[1]); });
+    instanced(unitBox, stores, function (h, o) {      // big shop window
+      var p = sfront(h, -8, 0.6); o.position.set(p[0], CURB + 10, p[1]); o.scale.set(40, 15, 1.2); }, texMat(TEX.window));
+    instanced(unitBox, stores, function (h, o, c) {
+      var p = sfront(h, 22, 0.6); o.position.set(p[0], CURB + 9, p[1]); o.scale.set(11, 18, 1.2); c.set(h.colors[1]); }, texMat(TEX.door));
+    instanced(unitBox, stores, function (h, o) {      // upstairs windows
+      var p = sfront(h, 0, 0.6); o.position.set(p[0], CURB + shopH(h) - 6, p[1]); o.scale.set(48, 7, 1.2); }, texMat(TEX.window));
+    instanced(unitBox, stores, function (h, o, c) {   // awning
+      var p = sfront(h, 0, 6); o.position.set(p[0], CURB + 20, p[1]); o.rotation.x = 0.45 * -h.fy; o.scale.set(h.w - 4, 1.4, 13); c.set(h.colors[1]); },
+      null, { cast: true });
+    stores.forEach(function (h) {                      // name sign over the awning
+      var sgn = new T.Mesh(new T.PlaneGeometry(56, 9), new T.MeshBasicMaterial({ map: textTexture(h.name, 448, 72, '#fbf6ea', '#3a2216', '700 40px Georgia, serif') }));
+      var p = sfront(h, 0, 0.9); sgn.position.set(p[0], CURB + 27.5, p[1]); sgn.rotation.y = Math.atan2(h.fx, h.fy); scene.add(sgn);
+    });
+    blocks.forEach(function (b) {                     // parking lot behind the shops
+      if (b.type !== 'market') return;
+      var cx = (b.x0 + b.x1) / 2, cz = (b.y0 + b.y1) / 2, lw = b.x1 - b.x0 - 100, ld = b.y1 - b.y0 - 2 * (SIDE + 62);
+      var lot = boxAt(scene, lw, 0.4, ld, cx, CURB + 0.45, cz, texMat(TEX.asphalt.clone())); lot.material.map.repeat.set(2, 1); lot.material.map.needsUpdate = true; lot.receiveShadow = SHADOWS;
+      for (var st = 0; st < 9; st++) {
+        boxAt(scene, 1.5, 0.5, ld * 0.36, cx - lw / 2 + 14 + st * (lw - 28) / 8, CURB + 0.7, cz - ld * 0.3, lam(0xf2f2f2));
+        boxAt(scene, 1.5, 0.5, ld * 0.36, cx - lw / 2 + 14 + st * (lw - 28) / 8, CURB + 0.7, cz + ld * 0.3, lam(0xf2f2f2));
+      }
+    });
+
+    // The pizza shop: brick walls, big windows, a striped awning, a sign and a giant pizza on the roof
+    var shop = new T.Group(); scene.add(shop);
+    var walls = boxAt(shop, 196, 34, 80, SHOP.x, CURB + 17, SHOP.y + 8, texMat(TEX.brick)); walls.castShadow = SHADOWS;
+    TEX.brickShop = TEX.brick;
+    boxAt(shop, 200, 3, 84, SHOP.x, CURB + 35, SHOP.y + 8, lam(0xf6efe2));
+    for (q = 0; q < 7; q++) {
+      var aw = boxAt(shop, 28, 1.6, 18, SHOP.x - 84 + q * 28, CURB + 27, SHOP.y - 38, lam(q % 2 ? 0xffffff : 0xd23a2a)); aw.rotation.x = -0.35;
+    }
+    boxAt(shop, 34, 20, 1.5, SHOP.x - 50, CURB + 12, SHOP.y - 32.5, texMat(TEX.window));
+    boxAt(shop, 34, 20, 1.5, SHOP.x + 50, CURB + 12, SHOP.y - 32.5, texMat(TEX.window));
+    boxAt(shop, 16, 22, 1.5, SHOP.x, CURB + 11, SHOP.y - 32.5, texMat(TEX.door, { color: 0x2f7d3e }));
+    var sign = new T.Mesh(new T.PlaneGeometry(150, 30), new T.MeshBasicMaterial({ map: textTexture('DOOR DASHER PIZZA', 600, 120, '#d23a2a', '#ffffff', '700 64px Fredoka, Arial, sans-serif') }));
+    sign.position.set(SHOP.x, CURB + 54, SHOP.y - 20); sign.rotation.y = Math.PI; shop.add(sign);
+    var pz = new T.Mesh(new T.CylinderGeometry(26, 26, 4, 28), lam(0xe8a33a)); pz.position.set(SHOP.x + 60, CURB + 48, SHOP.y + 20); pz.rotation.x = -0.9; shop.add(pz);
+    var sauce = new T.Mesh(new T.CylinderGeometry(22, 22, 4.4, 28), lam(0xd9472f)); sauce.position.copy(pz.position); sauce.rotation.copy(pz.rotation); shop.add(sauce);
+
+    // Street-name signs on a corner of every intersection (one draw per street name)
+    var poles = [], signs = {}, signGeo = new T.PlaneGeometry(46, 8.5);
+    function addSign(name, x, y, z, rot, ko) { (signs[name] = signs[name] || []).push([x, y, z, rot, ko], [x, y, z, rot + Math.PI, ko]); }
+    for (j = 0; j < N; j++) for (i = 0; i < N; i++) {
+      var cx = i * SP + (i < N - 1 ? HALF + 7 : -HALF - 7), cz = j * SP + (j < N - 1 ? HALF + 7 : -HALF - 7);
+      poles.push([cx, cz]);
+      addSign(STREET_NAMES[j], cx, CURB + 41, cz, 0, signObjs[j * N + i]);
+      addSign(AVE_NAMES[i], cx, CURB + 34, cz, Math.PI / 2, signObjs[j * N + i]);
+    }
+    registerParts(signObjs, instanced(unitBox, poles, function (pp, o) { o.position.set(pp[0], CURB + 20, pp[1]); o.scale.set(1.6, 40, 1.6); }, lam(0x9aa3ab), { cast: true }));
+    Object.keys(signs).forEach(function (name) {
+      var sm = instanced(signGeo, signs[name], function (sg, o) { o.position.set(sg[0], sg[1], sg[2]); o.rotation.y = sg[3]; },
+        new T.MeshBasicMaterial({ map: textTexture(name, 256, 48, '#2f7d3e', '#ffffff', '700 30px Arial, sans-serif') }));
+      registerParts(signs[name].map(function (sg) { return sg[4]; }), sm);
+    });
+
+    // A wooden fence all the way around town
+    var posts = [], rails = [], lo = -BOUND, hi = WORLD + BOUND;
+    for (var fp = lo; fp <= hi + 0.1; fp += 24) { posts.push([fp, lo]); posts.push([fp, hi]); if (fp > lo && fp < hi) { posts.push([lo, fp]); posts.push([hi, fp]); } }
+    instanced(unitBox, posts, function (pp, o) { o.position.set(pp[0], 6, pp[1]); o.scale.set(2.4, 12, 2.4); }, lam(0x8a6845), { cast: true });
+    [5, 10].forEach(function (yy) {
+      rails.push([(lo + hi) / 2, yy, lo, hi - lo, 1]); rails.push([(lo + hi) / 2, yy, hi, hi - lo, 1]);
+      rails.push([lo, yy, (lo + hi) / 2, 1, hi - lo]); rails.push([hi, yy, (lo + hi) / 2, 1, hi - lo]);
+    });
+    instanced(unitBox, rails, function (rl, o) { o.position.set(rl[0], rl[1], rl[2]); o.scale.set(rl[3], 1.6, rl[4]); }, lam(0x9c7a52));
+    camRear = new T.PerspectiveCamera(60, 1.7, 1, 900);
+
+    // The customer's house: a tall glowing beacon, a bouncing pizza pin, and a ring on the road
+    beacon = new T.Mesh(new T.CylinderGeometry(9, 9, 320, 16, 1, true),
+      new T.MeshBasicMaterial({ color: 0xffd23f, transparent: true, opacity: 0.28, depthWrite: false, side: T.DoubleSide, fog: false }));
+    scene.add(beacon);
+    var pc = document.createElement('canvas'); pc.width = pc.height = 128; var pg = pc.getContext('2d');
+    pg.fillStyle = '#d23a2a'; pg.beginPath(); pg.arc(64, 50, 44, Math.PI * 0.82, Math.PI * 2.18); pg.lineTo(64, 124); pg.closePath(); pg.fill();
+    pg.fillStyle = '#fff'; pg.beginPath(); pg.arc(64, 50, 30, 0, 6.283); pg.fill();
+    pg.fillStyle = '#e8a33a'; pg.beginPath(); pg.moveTo(48, 34); pg.lineTo(82, 36); pg.lineTo(64, 72); pg.closePath(); pg.fill();
+    pg.fillStyle = '#d23a2a'; pg.beginPath(); pg.arc(60, 43, 4.5, 0, 6.283); pg.arc(68, 54, 4, 0, 6.283); pg.fill();
+    pinSprite = new T.Sprite(new T.SpriteMaterial({ map: new T.CanvasTexture(pc), fog: false, depthTest: false }));
+    pinSprite.scale.set(46, 46, 1); pinSprite.renderOrder = 5; scene.add(pinSprite);
+    dropRing = new T.Mesh(new T.RingGeometry(24, 33, 40), new T.MeshBasicMaterial({ color: 0xffcf3f, transparent: true, opacity: 0.85, side: T.DoubleSide }));
+    dropRing.rotation.x = -Math.PI / 2; scene.add(dropRing);
+    boxMesh = new T.Group(); boxAt(boxMesh, 14, 3, 14, 0, 0, 0, lam(0xf2e3c4)); boxAt(boxMesh, 4, 3.2, 4, 0, 0, 0, lam(0xd23a2a)); boxMesh.visible = false; scene.add(boxMesh);
+
+    // Your own hood, out past the dashboard (it moves with the camera)
+    hood = new T.Group(); camera.add(hood);
+    var hb = new Builder();
+    hb.add(taper(0.92, 0.8, 0), 0xffffff, 0, -8.6, -25, 0.12, 0, 0, 26, 1.6, 11);
+    hb.box(0xd23a2a, 3.5, 1.64, 11, 0, -8.58, -25, 0.12);
+    var hm = hb.mesh(VC_SHINY); hm.castShadow = false; hood.add(hm);
+  }
+
+  // ---- Cars: sedans, SUVs and vans with glass, bumpers, hubcaps and lights ----
+  var wheelGeo = null, hubGeo = null;
+  function carModel(color, len, type) {
+    if (!wheelGeo) { wheelGeo = new T.CylinderGeometry(4.3, 4.3, 3, 14); hubGeo = new T.CylinderGeometry(2.3, 2.3, 3.3, 10); }
+    var b = new Builder(), w = CAR_W, dark = 0x1f2125, glass = 0x2f4357, chrome = 0xc9ced6, tire = 0x161617;
+    var tall = type === 'van' ? 1.3 : type === 'suv' ? 1.12 : 1;
+    b.box(color, len, 6.5 * tall, w, 0, 4.5 + 3.25 * tall, 0);                     // body
+    b.box(dark, len + 0.8, 2.6, w + 0.5, 0, 4.4, 0);                              // rocker panels and bumpers
+    b.box(dark, 1.2, 3.2, w - 3, len / 2 + 0.5, 7, 0);                            // grille
+    var beltY = 4.5 + 6.5 * tall;
+    if (type === 'van') {
+      b.add(taper(0.93, 0.92, 0.02), glass, -len * 0.04, beltY + 4.2, 0, 0, 0, 0, len * 0.86, 8.4, w - 1.2);
+      b.box(color, len * 0.62, 8.6, w - 0.6, -len * 0.16, beltY + 4.2, 0);        // van side panels behind the front windows
+      b.box(color, len * 0.8, 1.4, w - 2, -len * 0.04, beltY + 8.9, 0);
+    } else {
+      var cl = type === 'suv' ? len * 0.66 : len * 0.5, cx = type === 'suv' ? -len * 0.08 : -len * 0.06, ch = type === 'suv' ? 7.5 : 6.8;
+      var tx = type === 'suv' ? 0.86 : 0.66;
+      b.add(taper(tx, 0.84, -0.03), glass, cx, beltY + ch / 2, 0, 0, 0, 0, cl, ch, w - 2);
+      b.box(color, cl * tx * 0.96, 1.2, (w - 2) * 0.84, cx - 0.03 * cl, beltY + ch + 0.5, 0);   // roof
+      b.box(color, 1.6, ch * 0.92, w - 1.8, cx + 0.02 * cl, beltY + ch / 2, 0);                  // door pillar
+    }
+    [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(function (p) {
+      b.add(wheelGeo, tire, p[0] * len * 0.31, 4.3, p[1] * (w / 2 - 1.3), Math.PI / 2);
+      b.add(hubGeo, chrome, p[0] * len * 0.31, 4.3, p[1] * (w / 2 - 1.15), Math.PI / 2);
+    });
+    b.box(0xfff4c4, 0.6, 2.2, 4.2, len / 2 + 0.2, 9.4, -w / 2 + 3.5); b.box(0xfff4c4, 0.6, 2.2, 4.2, len / 2 + 0.2, 9.4, w / 2 - 3.5);
+    b.box(color, 1.8, 1.6, 2.2, len * 0.14, beltY + 1.2, -w / 2 - 0.9); b.box(color, 1.8, 1.6, 2.2, len * 0.14, beltY + 1.2, w / 2 + 0.9);   // side mirrors
+    b.box(dark, 0.3, 5, w + 0.15, len * 0.02, 8.2, 0);                             // door seam
+    b.box(0xe8e8e8, 0.4, 1.6, 6, -len / 2 - 0.3, 6.4, 0);                          // licence plate
+    var g = new T.Group();
+    var body = b.mesh(VC_SHINY); g.add(body);
+    var shadow = new T.Mesh(new T.PlaneGeometry(len + 8, CAR_W + 8), new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.25, depthWrite: false }));
+    shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.45; g.add(shadow);
+    var tl = new T.MeshBasicMaterial({ color: 0x7a1a12 });
+    boxAt(g, 0.8, 2.4, w - 5, -len / 2 - 0.3, 9.2, 0, tl);
+    g.userData.tail = tl;
+    scene.add(g); return g;
+  }
+  // ---- People: a cyclist (legs pedal) and people out for a walk (legs swing) ----
+  var SKINS = [0xf1c7a1, 0xe0b48a, 0xc68b5e, 0x8d5a3b, 0x5c3a24];
+  function legMesh(pants, shoe, len) {
+    var b = new Builder();
+    b.box(pants, 2.6, len * 0.55, 2.8, 0, -len * 0.27, 0);
+    b.box(pants, 2.3, len * 0.45, 2.5, 0, -len * 0.75, 0);
+    b.box(shoe, 4, 1.4, 2.8, 0.8, -len, 0);
+    return b.mesh();
+  }
+  function bikeModel(jersey, helmet) {
+    var g = new T.Group(), rider = new T.Group(); g.add(rider);
+    var skin = pick(SKINS), frameCol = pick([0xd23a2a, 0x2a6fd2, 0x1f9d55, 0x222222, 0xf2c94c]);
+    var b = new Builder();
+    var tire = new T.TorusGeometry(5.6, 0.75, 6, 20);
+    b.add(tire, 0x1b1b1b, -9.5, 5.6, 0); b.add(tire, 0x1b1b1b, 9.5, 5.6, 0);
+    b.box(0xaaaaaa, 0.5, 10.5, 0.5, -9.5, 5.6, 0); b.box(0xaaaaaa, 10.5, 0.5, 0.5, -9.5, 5.6, 0);   // spokes
+    b.box(0xaaaaaa, 0.5, 10.5, 0.5, 9.5, 5.6, 0); b.box(0xaaaaaa, 10.5, 0.5, 0.5, 9.5, 5.6, 0);
+    b.box(frameCol, 13, 1.3, 1.3, 1, 12.5, 0, 0, 0, -0.08);                    // top tube
+    b.box(frameCol, 1.3, 11, 1.3, 2.5, 8.5, 0, 0, 0, -0.75);                  // down tube
+    b.box(frameCol, 1.3, 9, 1.3, -4.5, 9, 0, 0, 0, 0.25);                     // seat tube
+    b.box(frameCol, 9, 1.1, 1.1, -7, 6.3, 0, 0, 0, 0.2);                      // chain stay
+    b.box(frameCol, 1.2, 9, 1.2, 8.8, 9, 0, 0, 0, 0.2);                       // fork
+    b.box(0x222222, 1.2, 1.2, 7, 8, 14.5, 0);                                  // handlebar
+    b.box(0x222222, 5, 1.4, 2.4, -5.5, 14, 0);                                 // saddle
+    // rider, leaning forward
+    b.box(jersey, 4.6, 12, 6.5, -2.5, 20, 0, 0, 0, -0.75);                     // torso
+    b.box(jersey, 2.2, 7, 2.2, 3, 18.5, -3.6, 0, 0, -1.1); b.box(jersey, 2.2, 7, 2.2, 3, 18.5, 3.6, 0, 0, -1.1);   // arms
+    b.box(skin, 2, 2, 2, 7.2, 15.6, -3.4); b.box(skin, 2, 2, 2, 7.2, 15.6, 3.4);   // hands on the bars
+    b.add(new T.SphereGeometry(2.6, 10, 8), skin, 3.6, 25.2, 0);              // head
+    b.add(new T.SphereGeometry(3, 10, 6, 0, 6.283, 0, 1.7), helmet, 3.4, 25.9, 0, 0, 0, 0.2);   // helmet
+    var body = b.mesh(); rider.add(body);
+    var pants = 0x2b2f38, shoe = 0x222222, legs = [];
+    [-1.8, 1.8].forEach(function (z) { var l = legMesh(pants, shoe, 10); l.position.set(-4.6, 14.5, z); rider.add(l); legs.push(l); });
+    g.userData.rider = rider; g.userData.legs = legs;
+    scene.add(g); return g;
+  }
+  function walkerModel() {
+    var g = new T.Group(), skin = pick(SKINS);
+    var shirt = pick([0xe76f51, 0x2a9d8f, 0x457b9d, 0xf4a261, 0x8e7dbe, 0xe9c46a, 0xffffff, 0xd62828]), pants = pick([0x264653, 0x3d405b, 0x6b705c, 0x1d3557, 0x8d6e63]);
+    var hair = pick([0x2b1b10, 0x5a3825, 0xb98b4f, 0x1a1a1a, 0x8a8a8a]), tallness = rand(0.85, 1.1);
+    var b = new Builder();
+    b.box(shirt, 3.6, 10, 7, 0, 17, 0);                                         // torso
+    b.box(shirt, 2.2, 8.5, 2.2, 0, 17, -4.6); b.box(shirt, 2.2, 8.5, 2.2, 0, 17, 4.6);
+    b.box(skin, 1.8, 2.4, 1.8, 0, 11.8, -4.6); b.box(skin, 1.8, 2.4, 1.8, 0, 11.8, 4.6);
+    b.add(new T.SphereGeometry(2.7, 10, 8), skin, 0, 25, 0);
+    b.add(new T.SphereGeometry(2.9, 10, 6, 0, 6.283, 0, 1.6), hair, -0.4, 25.4, 0);
+    var body = b.mesh(); g.add(body);
+    var legs = [];
+    [-1.8, 1.8].forEach(function (z) { var l = legMesh(pants, 0x2b2b2b, 11); l.position.set(0, 12, z); g.add(l); legs.push(l); });
+    g.scale.setScalar(tallness);
+    g.userData.legs = legs;
+    scene.add(g); return g;
+  }
+  // ---- Dogs: chest, snout, floppy ears, collar, a wagging tail and trotting legs ----
+  function dogModel(dg) {
+    var g = new T.Group(), b = new Builder(), body = dg.body, dark = dg.ear;
+    b.add(taper(0.9, 0.85, 0.06), body, 0, 7.5, 0, 0, 0, 0, 14, 6.5, 6.4);       // body (deeper at the chest)
+    b.box(body, 4, 5, 5, 6.5, 9.5, 0, 0, 0, 0.5);                                   // neck
+    b.box(body, 5.6, 5.2, 5.2, 9.5, 12, 0);                                         // head
+    b.box(dark, 3.6, 2.8, 3.4, 13.3, 11, 0);                                         // snout
+    b.box(0x1a1a1a, 1, 1.2, 1.4, 15.2, 11.8, 0);                                     // nose
+    b.box(dark, 1.4, 4.2, 2, 8.8, 12.4, -3.1, 0.3); b.box(dark, 1.4, 4.2, 2, 8.8, 12.4, 3.1, -0.3);   // ears
+    b.box(0xd23a2a, 1, 5.6, 5.8, 7.6, 10.4, 0, 0, 0, 0.5);                           // collar
+    b.box(0x111111, 0.6, 0.9, 0.9, 12.3, 13.2, -1.7); b.box(0x111111, 0.6, 0.9, 0.9, 12.3, 13.2, 1.7);   // eyes
+    var torso = b.mesh(); g.add(torso);
+    var legs = [];
+    [[4.5, -2], [4.5, 2], [-4.5, -2], [-4.5, 2]].forEach(function (p) {
+      var lb = new Builder(); lb.box(body, 2, 5.4, 2, 0, -2.7, 0); lb.box(dark, 2.4, 1, 2.4, 0.3, -5.4, 0);
+      var l = lb.mesh(); l.position.set(p[0], 5.6, p[1]); g.add(l); legs.push(l);
+    });
+    var tb = new Builder(); tb.box(body, 6, 1.6, 1.6, -3, 0, 0);
+    var tail = tb.mesh(); tail.position.set(-6.8, 9.5, 0); tail.rotation.z = -0.6; g.add(tail);
+    g.userData.legs = legs; g.userData.tail = tail;
+    g.scale.setScalar(dg.size);
+    scene.add(g); return g;
+  }
+
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    ctlH = 0;   // phone controls float over the view now
+    document.documentElement.style.setProperty('--ctl-h', ctlH + 'px');
+    dpr = Math.min(window.devicePixelRatio || 1, touchOn ? 1.5 : 2);
+    dashCv.width = Math.round(W * dpr); dashCv.height = Math.round(H * dpr);
+    if (!renderer) return;
+    renderer.setPixelRatio(dpr);
+    renderer.setSize(W, H, false);
+    camera.aspect = W / H;
+    camera.fov = W / H < 0.8 ? 80 : W / H < 1.2 ? 72 : 64;   // phones held upright need a taller view
+    camera.updateProjectionMatrix();
+    if (touchOn && !joy.active) joyRest();
+  }
+  function outOfSight(x, y) {   // somewhere the driver can't see right now (far away, or behind the car)
+    var d = dist(x, y, P.x, P.y);
+    if (d > 760) return true;
+    return ((x - P.x) * Math.cos(P.a) + (y - P.y) * Math.sin(P.a)) / d < -0.45 && d > 140;
+  }
+
+  var tmpV = null;
+  function draw() {
+    if (!renderer) return;
+    var q;
+    // Camera: the driver's eyes, or a slow fly-around above the pizza shop on the start screen
+    var lookX, lookZ;
+    if (state === 'playing' || (state === 'done' && performance.now() - endedAt < 1200)) {
+      var ca = Math.cos(P.a), sa = Math.sin(P.a), shk = shake > 0 ? shake * 6 : 0;
+      var ex = P.x + ca * 4 + rand(-shk, shk), ez = P.y + sa * 4 + rand(-shk, shk), bobY = Math.sin(playT * 9) * Math.min(1, Math.abs(P.v) / 300) * 0.35;
+      if (P.surf !== 'road') bobY += rand(-1, 1) * Math.min(1, Math.abs(P.v) / 90) * (P.surf === 'grass' ? 0.7 : 0.3);   // bumpy ride off the road
+      camera.position.set(ex, EYE_H + P.h + bobY, ez);
+      camera.lookAt(ex + ca * 100, EYE_H + P.h - 7 + bobY, ez + sa * 100);
+      camera.rotateZ(-P.steer * Math.min(1, Math.abs(P.v) / 200) * 0.025);   // a little lean in the turns
+      hood.visible = true;
+      lookX = P.x + ca * 260; lookZ = P.y + sa * 260;
+    } else {
+      cam.a += 0.0016;
+      var r = 430;
+      camera.position.set(SHOP.x + Math.cos(cam.a) * r, 250, SHOP.y + Math.sin(cam.a) * r);
+      camera.lookAt(SHOP.x, 20, SHOP.y);
+      hood.visible = false;
+      lookX = SHOP.x; lookZ = SHOP.y;
+    }
+    sky.position.set(camera.position.x, 0, camera.position.z);
+    sun.target.position.set(lookX, 0, lookZ);
+    sun.position.set(lookX - 420, 760, lookZ - 300);
+    // Traffic, bikes, people and dogs
+    for (q = 0; q < vehicles.length; q++) {
+      var v = vehicles[q];
+      if (!v.mesh) v.mesh = v.kind === 'bike' ? bikeModel(v.color, v.helmet) : carModel(v.color, v.carLen, v.type);
+      v.mesh.position.set(v.x, 0, v.y); v.mesh.rotation.set(0, -v.a, 0);
+      if (v.kind === 'bike') {
+        var rider = v.mesh.userData.rider, lg = v.mesh.userData.legs;
+        rider.rotation.x = v.fallT > 0 ? 1.35 : 0; rider.position.y = v.fallT > 0 ? 3 : 0;
+        lg[0].rotation.z = Math.sin(v.pedal) * 0.7 - 0.3; lg[1].rotation.z = -Math.sin(v.pedal) * 0.7 - 0.3;
+      } else v.mesh.userData.tail.color.setHex(v.brakeLight ? 0xff2a2a : 0x7a1a12);
+    }
+    for (q = 0; q < walkers.length; q++) {
+      var wk = walkers[q];
+      if (!wk.mesh) wk.mesh = walkerModel();
+      wk.mesh.position.set(wk.x, CURB + (wk.fallT > 0 ? 3 : 0), wk.y); wk.mesh.rotation.set(wk.fallT > 0 ? 1.45 : 0, -wk.a, 0, 'YXZ');
+      var st = wk.pause < 0 ? 0 : Math.sin(wk.step) * 0.55, wl = wk.mesh.userData.legs;
+      wl[0].rotation.z = st; wl[1].rotation.z = -st;
+    }
+    for (q = 0; q < dogs.length; q++) {
+      var dg = dogs[q];
+      if (!dg.mesh) dg.mesh = dogModel(dg);
+      dg.mesh.position.set(dg.x, dg.inRoad ? 0 : CURB, dg.y); dg.mesh.rotation.y = -dg.a;
+      var moving = !(dg.mode === 'walk' && dg.pause < 0) && !(dg.mode === 'dart' && dg.sitT > 0 && !dg.sat && dist(dg.fromX, dg.fromY, dg.x, dg.y) > (RW + 18) / 2);
+      var swing = moving ? Math.sin(dg.wag * 1.3) * 0.6 : 0, legs = dg.mesh.userData.legs;
+      legs[0].rotation.z = legs[3].rotation.z = swing; legs[1].rotation.z = legs[2].rotation.z = -swing;
+      dg.mesh.userData.tail.rotation.y = Math.sin(dg.wag * 1.7) * 0.7;
+    }
+    // The customer's house
+    var showOrder = order && state === 'playing';
+    beacon.visible = pinSprite.visible = dropRing.visible = !!showOrder;
+    if (showOrder) {
+      var h = order.house, sp = h.spot;
+      beacon.position.set(h.x, 160, h.y);
+      pinSprite.position.set(h.x, 72 + Math.sin(playT * 4) * 5, h.y);
+      dropRing.position.set(sp.x, 0.6, sp.y);
+      var pr = 1 + Math.sin(playT * 5) * 0.12; dropRing.scale.set(pr, pr, 1);
+    }
+    boxMesh.visible = fx.length > 0;
+    if (fx.length) {
+      var f = fx[fx.length - 1], t = f.t / f.dur;
+      boxMesh.position.set(f.x0 + (f.x1 - f.x0) * t, 14 + Math.sin(t * Math.PI) * 26, f.y0 + (f.y1 - f.y0) * t);
+      boxMesh.rotation.y = t * 7;
+    }
+    animateKnocked(1 / 60);
+    renderer.render(scene, camera);
+    window.__ddCalls = renderer.info.render.calls;
+    // Backup camera on the dashboard while you're in reverse
+    rearRect = null;
+    if (P.v < -3 && state === 'playing') {
+      var playH = H - ctlH, top = playH - clamp(playH * 0.15, 54, 120);
+      var iw = Math.round(clamp(W * 0.26, 140, 320)), ih = Math.round(iw * 0.56);
+      var ix = Math.round((W - iw) / 2), iy = Math.round(top - ih - 10);
+      var rca = Math.cos(P.a), rsa = Math.sin(P.a);
+      camRear.position.set(P.x - rca * 22, 12 + P.h, P.y - rsa * 22);
+      camRear.lookAt(P.x - rca * 140, P.h, P.y - rsa * 140);
+      if (Math.abs(camRear.aspect - iw / ih) > 0.01) { camRear.aspect = iw / ih; camRear.updateProjectionMatrix(); }
+      hood.visible = false;
+      renderer.setScissorTest(true); renderer.shadowMap.autoUpdate = false;   // reuse this frame's shadows
+      renderer.setViewport(ix, H - iy - ih, iw, ih); renderer.setScissor(ix, H - iy - ih, iw, ih);
+      renderer.render(scene, camRear);
+      renderer.setScissorTest(false); renderer.shadowMap.autoUpdate = true; renderer.setViewport(0, 0, W, H);
+      rearRect = { x: ix, y: iy, w: iw, h: ih };
+    }
+    drawDash();
+  }
+
+  // ---- Windshield frame, dashboard, steering wheel, mirror, and the floating words ----
+  function drawDash() {
+    var g = dctx;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    var inCar = state === 'playing' || (state === 'done' && performance.now() - endedAt < 1200);
+    if (inCar) {
+      var playH = H - ctlH, dashH = clamp(playH * 0.15, 54, 120), top = playH - dashH;
+      // roof edge and windshield pillars
+      g.fillStyle = '#1b1d22';
+      g.fillRect(0, 0, W, Math.max(10, playH * 0.025));
+      var pw = clamp(W * 0.05, 18, 60);
+      g.beginPath(); g.moveTo(0, 0); g.lineTo(pw * 1.4, 0); g.lineTo(pw * 0.2, top); g.lineTo(0, top); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(W, 0); g.lineTo(W - pw * 1.4, 0); g.lineTo(W - pw * 0.2, top); g.lineTo(W, top); g.closePath(); g.fill();
+      // rear-view mirror with a swinging pizza air freshener (wide screens only, so it never hides the directions)
+      var steerPush = P.steer * Math.min(1, Math.abs(P.v) / 150);
+      swayV += (-sway * 30 - steerPush * 9 - swayV * 2.2) * (1 / 60); sway += swayV * (1 / 60);
+      if (W >= 760) {
+        var mw = clamp(W * 0.17, 140, 230), mh = mw * 0.22, mx = W / 2 - mw / 2, my = Math.max(10, playH * 0.025) + 6;
+        g.fillStyle = '#1b1d22'; g.fillRect(W / 2 - 3, 0, 6, my + 4);
+        var mg = g.createLinearGradient(0, my, 0, my + mh); mg.addColorStop(0, '#a8c6dc'); mg.addColorStop(1, '#6f8798');
+        g.fillStyle = '#1b1d22'; rr(g, mx - 4, my - 4, mw + 8, mh + 8, 10); g.fill();
+        g.fillStyle = mg; rr(g, mx, my, mw, mh, 7); g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(mx + mw * 0.1, my + mh * 0.2, mw * 0.5, 3);
+        g.save(); g.translate(W / 2, my + mh + 4); g.rotate(sway);
+        g.strokeStyle = '#eee'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, 22); g.stroke();
+        g.fillStyle = '#e8a33a'; g.beginPath(); g.moveTo(-12, 22); g.lineTo(12, 22); g.lineTo(0, 50); g.closePath(); g.fill();
+        g.fillStyle = '#c98a2a'; g.fillRect(-12, 20, 24, 5);
+        g.fillStyle = '#d23a2a'; g.beginPath(); g.arc(-3, 30, 3, 0, 6.283); g.arc(4, 35, 2.6, 0, 6.283); g.arc(0, 42, 2.2, 0, 6.283); g.fill();
+        g.restore();
+      }
+      // dashboard
+      var dg2 = g.createLinearGradient(0, top - 10, 0, H); dg2.addColorStop(0, '#34373e'); dg2.addColorStop(1, '#16181c');
+      g.fillStyle = dg2;
+      g.beginPath(); g.moveTo(0, top + 6); g.quadraticCurveTo(W / 2, top - 22, W, top + 6); g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+      g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(0, top + 8, W, 2);
+      // speedometer
+      var mph = Math.round(Math.abs(P.v) / M * 2.237), sx = W / 2 + clamp(W * 0.22, 90, 260), sy = top + dashH * 0.55, srad = clamp(dashH * 0.42, 22, 48);
+      g.fillStyle = '#0f1114'; g.beginPath(); g.arc(sx, sy, srad, 0, 6.283); g.fill();
+      g.strokeStyle = '#4b5058'; g.lineWidth = 2; g.stroke();
+      var ang = Math.PI * 0.75 + Math.min(1, mph / 100) * Math.PI * 1.5;
+      g.strokeStyle = '#ff6a3d'; g.lineWidth = 3; g.beginPath(); g.moveTo(sx, sy); g.lineTo(sx + Math.cos(ang) * srad * 0.8, sy + Math.sin(ang) * srad * 0.8); g.stroke();
+      g.fillStyle = '#fff'; g.font = '700 ' + Math.round(srad * 0.42) + 'px Fredoka, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(mph, sx, sy + srad * 0.42); g.font = '600 ' + Math.round(srad * 0.24) + 'px Fredoka, Arial, sans-serif'; g.fillStyle = '#9aa1ab'; g.fillText('mph', sx, sy + srad * 0.72);
+      // gear selector: R / D
+      var gx = W / 2 - clamp(W * 0.22, 90, 260), gy = sy, gs = clamp(dashH * 0.3, 16, 30);
+      g.fillStyle = '#0f1114'; rr(g, gx - gs * 1.6, gy - gs * 0.8, gs * 3.2, gs * 1.6, 8); g.fill();
+      g.font = '700 ' + Math.round(gs) + 'px Fredoka, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      var rev = P.v < -0.5;
+      g.fillStyle = rev ? '#ff5a3d' : '#4b5058'; g.fillText('R', gx - gs * 0.7, gy);
+      g.fillStyle = !rev ? '#5ee07f' : '#4b5058'; g.fillText('D', gx + gs * 0.7, gy);
+      if (rearRect) {
+        g.strokeStyle = '#1b1d22'; g.lineWidth = 6; rr(g, rearRect.x - 3, rearRect.y - 3, rearRect.w + 6, rearRect.h + 6, 8); g.stroke();
+        g.fillStyle = 'rgba(0,0,0,0.55)'; rr(g, rearRect.x + 6, rearRect.y + 6, 92, 20, 5); g.fill();
+        g.fillStyle = '#fff'; g.font = '600 12px Fredoka, Arial, sans-serif'; g.textAlign = 'left'; g.fillText('REAR CAMERA', rearRect.x + 12, rearRect.y + 16.5);
+        g.strokeStyle = 'rgba(255,214,64,0.85)'; g.lineWidth = 3; g.beginPath();   // parking guide lines
+        g.moveTo(rearRect.x + rearRect.w * 0.2, rearRect.y + rearRect.h); g.lineTo(rearRect.x + rearRect.w * 0.36, rearRect.y + rearRect.h * 0.45);
+        g.moveTo(rearRect.x + rearRect.w * 0.8, rearRect.y + rearRect.h); g.lineTo(rearRect.x + rearRect.w * 0.64, rearRect.y + rearRect.h * 0.45); g.stroke();
+        g.textAlign = 'center';
+      }
+      // steering wheel (turns with the steering)
+      var wr = clamp(Math.min(W * 0.2, playH * 0.27), 70, 190), wx = W / 2 - clamp(W * 0.04, 0, 30), wy = playH + wr * 0.38;
+      g.save(); g.translate(wx, wy); g.rotate(P.steer * 1.4);
+      g.strokeStyle = '#1e2024'; g.lineWidth = wr * 0.16; g.beginPath(); g.arc(0, 0, wr, 0, 6.283); g.stroke();
+      g.strokeStyle = '#3a3e45'; g.lineWidth = wr * 0.05; g.beginPath(); g.arc(0, 0, wr - wr * 0.05, Math.PI * 1.1, Math.PI * 1.9); g.stroke();
+      g.strokeStyle = '#26292e'; g.lineWidth = wr * 0.12;
+      g.beginPath(); g.moveTo(-wr * 0.95, 0); g.lineTo(wr * 0.95, 0); g.moveTo(0, 0); g.lineTo(0, wr * 0.95); g.stroke();
+      g.fillStyle = '#26292e'; g.beginPath(); g.arc(0, 0, wr * 0.26, 0, 6.283); g.fill();
+      g.fillStyle = '#d23a2a'; g.beginPath(); g.arc(0, 0, wr * 0.14, 0, 6.283); g.fill();
+      g.fillStyle = '#e8a33a'; g.beginPath(); g.moveTo(-wr * 0.07, -wr * 0.07); g.lineTo(wr * 0.08, -wr * 0.05); g.lineTo(0, wr * 0.09); g.closePath(); g.fill();
+      g.restore();
+    }
+    // Floating words ("+$12", "Yelp!", "Slow down to deliver!")
+    if (!tmpV) tmpV = new T.Vector3();
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    var nearRow = 0;
+    for (var q = 0; q < texts.length; q++) {
+      var tx = texts[q]; if (tx.t < 0) continue;
+      var near = dist(tx.x, tx.y, P.x, P.y) < 40, sx2, sy2;
+      if (near) { sx2 = W / 2; sy2 = (H - ctlH) * 0.42 + nearRow * 40; nearRow++; }        // things about your own car show in the middle of the windshield
+      else {
+        tmpV.set(tx.x, 26, tx.y).project(camera);
+        if (tmpV.z > 1 || tmpV.z < -1) continue;
+        sx2 = (tmpV.x + 1) / 2 * W; sy2 = (1 - tmpV.y) / 2 * H;
+      }
+      var k = tx.t / tx.life;
+      g.globalAlpha = k < 0.75 ? 1 : 1 - (k - 0.75) / 0.25;
+      g.font = '700 ' + Math.round(clamp(W * 0.035, 22, 38)) + 'px Fredoka, Arial, sans-serif';
+      g.lineWidth = 6; g.strokeStyle = 'rgba(255,255,255,0.95)'; g.strokeText(tx.text, sx2, sy2 - tx.t * 50);
+      g.fillStyle = tx.color; g.fillText(tx.text, sx2, sy2 - tx.t * 50);
+      g.globalAlpha = 1;
+    }
+  }
+  function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+
+  // =====================================================================
+  // Input
+  // =====================================================================
+  // ↑ = go, ↓ = slow down / back up, ← → = steer, Space = drop off the pizza
+  var KEYMAP = { ArrowUp: 'gas', ArrowDown: 'brake', ArrowLeft: 'left', ArrowRight: 'right', KeyW: 'gas', KeyS: 'brake', KeyA: 'left', KeyD: 'right' };
+  function canKeyStart() { return state !== 'playing' && performance.now() - endedAt > 1200; }
+  window.addEventListener('keydown', function (e) {
+    var k = KEYMAP[e.code];
+    if (state !== 'playing') {
+      if ((e.key === 'Enter' || e.code === 'Space') && canKeyStart()) { e.preventDefault(); startGame(); }
+      return;
+    }
+    if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) tryDeliver(); return; }
+    if (e.code === 'KeyM') { setSound(!soundOn); return; }
+    if (!k) return;
+    e.preventDefault();
+    keys[k] = true;
+  });
+  window.addEventListener('keyup', function (e) {
+    var k = KEYMAP[e.code];
+    if (!k) return; e.preventDefault(); keys[k] = false;
+  });
+  window.addEventListener('blur', function () { keys.gas = keys.brake = keys.left = keys.right = false; if (typeof releaseAllTouches === 'function') releaseAllTouches(); });
+  btn.addEventListener('click', startGame);
+  document.getElementById('sndBtn').addEventListener('click', function () { setSound(!soundOn); });
+  document.getElementById('sndHud').addEventListener('click', function (e) { e.stopPropagation(); setSound(!soundOn); this.blur(); });
+  setSound(soundOn);
+  window.addEventListener('resize', resize);
+
+  // Touch: a joystick that appears under your left thumb (push up = go, down = back, sideways = steer)
+  // and a big see-through pizza button for your right thumb.
+  var joyZone = document.getElementById('joyZone'), joyEl = document.getElementById('joy'), knob = document.getElementById('joyKnob');
+  var touchOn = false, joy = { active: false, id: null, cx: 0, cy: 0, x: 0, y: 0 }, JOY_R = 56;
+  function joyRest() {               // where the joystick waits when nobody is touching it
+    joyEl.style.left = Math.max(90, W * 0.16) + 'px'; joyEl.style.top = (H - Math.max(120, H * 0.2)) + 'px';
+    knob.style.transform = ''; joyEl.classList.remove('active');
+  }
+  function showTouch() {
+    if (touchOn) return;
+    touchOn = true;
+    joyZone.style.display = 'block'; joyEl.style.display = 'block'; dropBtn.style.display = 'block';
+    var how = document.getElementById('howto');
+    if (how) how.innerHTML = 'Put your <b>left thumb</b> down anywhere on the left side and slide it: <b>up</b> to go, <b>down</b> to slow down or back up, <b>left/right</b> to steer.<br>Stop in the yellow circle and tap the <b>🍕</b> button.';
+    var dh = document.getElementById('dropHint'); if (dh) dh.textContent = '🍕 Tap the pizza button to deliver!';
+    resize(); joyRest();
+  }
+  if ('ontouchstart' in window || navigator.maxTouchPoints > 0) showTouch();
+  window.addEventListener('pointerdown', function (e) { if (e.pointerType === 'touch') showTouch(); }, true);
+  function joyMove(e) {
+    var dx = e.clientX - joy.cx, dy = e.clientY - joy.cy, d = Math.hypot(dx, dy);
+    if (d > JOY_R) { dx *= JOY_R / d; dy *= JOY_R / d; }
+    knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+    var nx = dx / JOY_R, ny = -dy / JOY_R;
+    joy.x = Math.abs(nx) < 0.12 ? 0 : (nx - Math.sign(nx) * 0.12) / 0.88;        // small dead zone in the middle
+    joy.y = Math.abs(ny) < 0.15 ? 0 : (ny - Math.sign(ny) * 0.15) / 0.85;
+  }
+  joyZone.addEventListener('pointerdown', function (e) {
+    if (joy.active) return;
+    e.preventDefault();
+    try { joyZone.setPointerCapture(e.pointerId); } catch (err) {}
+    joy.active = true; joy.id = e.pointerId;
+    joy.cx = clamp(e.clientX, 75, W - 75); joy.cy = clamp(e.clientY, 75, H - 75);
+    joyEl.style.left = joy.cx + 'px'; joyEl.style.top = joy.cy + 'px'; joyEl.classList.add('active');
+    joyMove(e);
+  });
+  joyZone.addEventListener('pointermove', function (e) { if (joy.active && e.pointerId === joy.id) joyMove(e); });
+  function joyEnd(e) { if (!joy.active || (e && e.pointerId !== joy.id)) return; joy.active = false; joy.x = joy.y = 0; joyRest(); }
+  joyZone.addEventListener('pointerup', joyEnd);
+  joyZone.addEventListener('pointercancel', joyEnd);
+  joyZone.addEventListener('lostpointercapture', joyEnd);
+  joyZone.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  dropBtn.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); tryDeliver(); if (navigator.vibrate) { try { navigator.vibrate(12); } catch (err) {} } });
+  function releaseAllTouches() { joy.active = false; joy.x = joy.y = 0; if (touchOn) joyRest(); }
+
+  // =====================================================================
+  // Main loop
+  // =====================================================================
+  var last = performance.now(), hudTick = 0;
+  var goodP = null, slowT = 0, frameEMA = 16;
+  function sane(o) { return isFinite(o.x) && isFinite(o.y); }
+  function repair() {   // if anything ever ends up "nowhere" (not a number), put it back somewhere sensible
+    if (!sane(P) || !isFinite(P.a) || !isFinite(P.v)) {
+      if (goodP) { P.x = goodP.x; P.y = goodP.y; P.a = goodP.a; } else { var np = newPlayer(); P.x = np.x; P.y = np.y; P.a = np.a; }
+      P.v = 0; P.steer = 0; P.h = isFinite(P.h) ? P.h : 0;
+    } else goodP = { x: P.x, y: P.y, a: P.a };
+    vehicles.forEach(function (v) { if (!sane(v) || !isFinite(v.s)) { v.ox = v.oy = v.svx = v.svy = 0; spawnVehicle(v, 160, 1150, true); } });
+    dogs.forEach(function (d) { if (!sane(d)) { d.ox = d.oy = d.svx = d.svy = 0; spawnDog(d, 160, 1000, true); } });
+    walkers.forEach(function (w) { if (!sane(w)) { w.ox = w.oy = w.svx = w.svy = 0; spawnWalker(w, 160, 900, true); } });
+  }
+  // Slow device? After a few seconds of choppy frames, turn off shadows and render fewer pixels.
+  function adaptQuality(ms) {
+    if (!renderer || !SHADOWS) return;
+    frameEMA += (ms - frameEMA) * 0.05;
+    slowT = frameEMA > 40 ? slowT + ms / 1000 : 0;
+    if (slowT > 4) {
+      SHADOWS = false; sun.castShadow = false;
+      dpr = 1; renderer.setPixelRatio(1); renderer.setSize(W, H, false);
+      slowT = 0;
+    }
+  }
+  function frame(now) {
+    var ms = now - last, dt = Math.min(0.033, ms / 1000);
+    last = now;
+    try {
+      update(dt);
+      repair();
+      if (!glLost) draw();
+      hudTick -= dt;
+      if (state === 'playing' && hudTick <= 0) { updateHud(); hudTick = 0.1; }
+      if (state === 'playing') adaptQuality(ms);
+    } catch (err) {
+      if (window.console) console.error('Door Dasher frame error:', err);
+      try { repair(); } catch (e2) {}
+    }
+    requestAnimationFrame(frame);
+  }
+  // If the graphics card resets (it happens on some phones and laptops), wait for it to come back instead of freezing
+  var glLost = false;
+  cv.addEventListener('webglcontextlost', function (e) { e.preventDefault(); glLost = true; }, false);
+  cv.addEventListener('webglcontextrestored', function () { glLost = false; if (renderer) { renderer.setSize(W, H, false); } }, false);
+
+  P = newPlayer();
+  cam.x = P.x; cam.y = P.y; cam.a = -1.9;
+  try { init3D(); }
+  catch (e) {
+    if (window.console) console.error('Door Dasher 3D:', e);
+    renderer = null;
+    msg.innerHTML = 'Sorry, this browser can\'t show the 3D streets Door Dasher needs.<br>Try an up-to-date Chrome, Safari, Edge or Firefox.';
+    btn.style.display = 'none';
+  }
+  resize();
+  populate(false);
+
+  // ---- Difficulty picker + leaderboard (shared panel from lbpanel) ----
+  var lb = RubenLB.create({ game: 'door', column: 'Cash', level: level, corner: true, format: money$,
+                            meEl: document.getElementById('me'), boardEl: document.getElementById('lb') });
+  var diffBtns = document.querySelectorAll('#diff button');
+  function setLevel(l) {
+    level = l; L = LEVELS[l];
+    try { localStorage.setItem(LEVEL_KEY, l); } catch (e) {}
+    for (var i = 0; i < diffBtns.length; i++) diffBtns[i].className = diffBtns[i].getAttribute('data-level') === l ? 'on' : '';
+    document.getElementById('lvlNote').textContent = L.note;
+    lb.setLevel(l);
+    if (state !== 'playing') populate(false);
+  }
+  for (var di = 0; di < diffBtns.length; di++) {
+    diffBtns[di].addEventListener('click', function () { setLevel(this.getAttribute('data-level')); });
+  }
+  setLevel(level);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
